@@ -4,14 +4,14 @@
   Implementation of blurfilter function.
     
  */
-#include <stdio.h>
+#include <cstdio>
 #include "blurfilter.h"
 #include "ppmio.h"
 
 
 pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
 {
-  register int off = xsize*yy + xx;
+  int off = xsize*yy + xx;
 
 #ifdef DBG
   if(off >= MAX_PIXELS) {

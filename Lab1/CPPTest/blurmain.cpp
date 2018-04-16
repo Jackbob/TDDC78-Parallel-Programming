@@ -1,15 +1,16 @@
 #include <iostream>
+#include <mpi.h>
 #include "ppmio.h"
 #include "blurfilter.h"
 #include "gaussw.h"
-#include <mpi.h>
+
 
 
 
 int main(int argc, char *argv[]) {
     int radius;
     int xsize, ysize, colmax;
-    //pixel src[MAX_PIXELS];
+    pixel src[MAX_PIXELS];
     struct timespec stime{}, etime{};
     #define MAX_RAD 1000
 
@@ -20,6 +21,7 @@ int main(int argc, char *argv[]) {
     int rank{}, world{};
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world);
+
     std::cout << "Rank " << rank << " out of " << world << "\n";
     if (argc != 4) {
         fprintf(stderr, "Usage: %s radius infile outfile\n", argv[0]);
@@ -32,8 +34,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* read file */
-    //if(read_ppm (argv[2], &xsize, &ysize, &colmax, (char *) src) != 0)
-    //exit(1);
+    if(read_ppm (argv[2], &xsize, &ysize, &colmax, (char *) src) != 0)
+        exit(1);
 
     if (colmax > 255) {
         fprintf(stderr, "Too large maximum color-component value\n");
@@ -43,13 +45,13 @@ int main(int argc, char *argv[]) {
     printf("Has read the image, generating coefficients\n");
 
     /* filter */
-    //get_gauss_weights(radius, w);
+    get_gauss_weights(radius, w);
 
     printf("Calling filter\n");
 
     clock_gettime(CLOCK_REALTIME, &stime);
 
-    //blurfilter(xsize, ysize, src, radius, w);
+    blurfilter(xsize, ysize, src, radius, w);
 
     clock_gettime(CLOCK_REALTIME, &etime);
 
@@ -59,8 +61,8 @@ int main(int argc, char *argv[]) {
     /* write result */
     printf("Writing output file\n");
 
-    //if(write_ppm (argv[3], xsize, ysize, (char *)src) != 0)
-    //return 1;
+    if(write_ppm (argv[3], xsize, ysize, (char *)src) != 0)
+        return 1;
 
     MPI_Finalize();
     return (0);

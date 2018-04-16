@@ -1,18 +1,14 @@
 
-CFLAGS = 
+EXECS=blurc thresc
+MPICXX?=mpicxx
 
-LFLAGS= -lpthread -lm
+all: ${EXECS}
 
-all: blurc thresc
+blurc: blurmain.cpp
+	${MPICXX} -o blurc blurmain.cpp ppmio.cpp gaussw.cpp blurfilter.cpp
+
+thresc: thresmain.cpp
+	${MPICXX} -o thresc thresmain.cpp thresfilter.cpp ppmio.cpp
 
 clean:
-	-$(RM) *.o blur thresc
-
-blurc: ppmio.o gaussw.o blurfilter.o blurmain.o
-	mpicxx -o $@ ppmio.o gaussw.o blurfilter.o blurmain.o $(LFLAGS)
-
-thresc: thresmain.o ppmio.o thresfilter.o
-	mpicxx -o $@ thresmain.o ppmio.o thresfilter.o $(LFLAGS)
-
-arc:
-	tar cf - *.cpp *.h *.f90 Makefile Makefile.sgi|gzip - > filters.tar.gz
+	rm -f ${EXECS}

@@ -26,19 +26,13 @@ blurc: ioobj blurfilter.o
 	mpicxx -o $@ $(IOOBJ) blurfilter.o $(LFLAGS)
 
 blurfilter_dbg.o: blurfilter.cpp
-	mpicxx -cpp -DDBG $(CFLAGS) blurfilter.cpp -o blurfilter_dbg.o
+	mpicxx -c -DDBG $(CFLAGS) blurfilter.cpp -o blurfilter_dbg.o
 
 blurcdbg: ioobj blurfilter_dbg.o
 	mpicxx -o $@ $(IOOBJ) blurfilter_dbg.o $(LFLAGS)
 
-blurfilter_f.o:blurfilter_f.f90
-	f90 -c $(FFLAGS) blurfilter_f.f90
-
 blurf: ioobj blurfilter_f.o blur_fproxy.o
 	mpicxx -o $@ $(IOOBJ) blurfilter_f.o blur_fproxy.o -lftn -lfortran $(LFLAGS)
-
-blurfilter_fmp.o:blurfilter_fmp.f90
-	f90 $(OMP) -cpp $(FFLAGS) blurfilter_fmp.f90
 
 blurfmp: ioobj blurfilter_fmp.o blur_fproxy.o
 	mpicxx -o $@ $(IOOBJ) blurfilter_fmp.o blur_fproxy.o -lftn -lfortran $(LFLAGS) $(OMP)
@@ -48,9 +42,6 @@ thresc: thresmain.o ppmio.o thresfilter.o
 
 thresf: thresmain.o ppmio.o thres_fproxy.o thresfilter_f.o
 	mpicxx -o $@ thresmain.o ppmio.o thres_fproxy.o thresfilter_f.o  $(LFLAGS)
-
-thresfilter_fmp.o:thresfilter_fmp.f90
-	f90 $(OMP) -cpp $(FFLAGS) thresfilter_fmp.f90
 
 thresfmp: thresmain.o ppmio.o thres_fproxy.o thresfilter_fmp.o
 	mpicxx -o $@ thresmain.o ppmio.o thres_fproxy.o thresfilter_fmp.o  $(LFLAGS) $(OMP)
