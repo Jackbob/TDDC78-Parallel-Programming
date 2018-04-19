@@ -39,7 +39,7 @@ int main (int argc, char ** argv) {
 
     /* write result */
     printf("Writing output file\n");
-    
+
     if(write_ppm (argv[2], xsize, ysize, (char *)src) != 0)
       exit(1);
 

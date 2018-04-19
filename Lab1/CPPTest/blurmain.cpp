@@ -5,6 +5,9 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
+#include <array>
+#include <iterator>
 
 #define MAX_X 1.33
 #define Pi 3.14159
@@ -15,6 +18,7 @@
 int read_ppm (const char * fname, int * xpix, int * ypix, int * max, unsigned char * data);
 int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data);
 void get_gauss_weights(int n, double* weights_out);
+void copyTo(unsigned char *destination, unsigned char *overlap, int from, int to);
 
 int main(int argc, char *argv[]) {
 
@@ -27,7 +31,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Rank " << rank << " out of " << world << "\n";
     int radius;
     int xsize, ysize, colmax;
-    auto *src = new unsigned char[MAX_PIXELS * 3];
+    auto src = new unsigned char[MAX_PIXELS * 3];
 
 #define MAX_RAD 1000
     struct timespec stime{}, etime{};
@@ -69,17 +73,40 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&xsize, 1, MPI_INT, root, MPI_COMM_WORLD);
     MPI_Bcast(&ysize, 1, MPI_INT, root, MPI_COMM_WORLD);
     MPI_Bcast(&radius, 1, MPI_INT, root, MPI_COMM_WORLD);
-    MPI_Bcast(src, xsize*ysize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     auto split = (int)std::ceil(ysize/world);
-    auto* dst = new unsigned char[split*xsize*3];
+    auto dst = new unsigned char[split*xsize*3];
+
+    MPI_Scatter(src, xsize*split*3, MPI_UNSIGNED_CHAR, dst, xsize*split*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+
+    auto overlap = new unsigned char[radius*xsize*2*3];
+    int from = split*xsize*3 - radius*xsize*3;
+    int to = split*xsize*3;
+    unsigned char* overlapsend;
+
+    if(rank == root){
+      overlapsend = new unsigned char[radius*xsize*3];
+      //copyTo(dst, overlapsend, from, to);
+      //std::copy(std::end(dst)-radius*xsize*3, std::end(dst), std::begin(overlapsend));
+      MPI_Send(overlapsend, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 1, MPI_COMM_WORLD);
+    }
+    else if(rank == world-1){
+      MPI_Recv(overlap, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+    else{
+      overlapsend = new unsigned char[radius*xsize*3];
+      //copyTo(dst, overlapsend, from, to);
+      //std::copy(std::end(dst)-radius*xsize*3, std::end(dst), std::begin(overlapsend));
+      MPI_Send(overlapsend, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 1, MPI_COMM_WORLD);
+      MPI_Recv(overlap, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+
 
     printf("Calling filter\n");
 
-    blurfilter(xsize, ysize, src, dst, radius, w);
+    //blurfilter(xsize, ysize, src, dst, radius, w);
 
-
-    MPI_Gather(dst, split*xsize*3, MPI_UNSIGNED_CHAR, src, split*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    //MPI_Gather(dst, split*xsize*3, MPI_UNSIGNED_CHAR, src, split*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     if(rank == root) {
         /* write result */
@@ -93,13 +120,19 @@ int main(int argc, char *argv[]) {
             return 1;
     }
 
+    delete(overlapsend);
+    delete(overlap);
+    delete(dst);
     delete(src);
     MPI_Finalize();
-    return (0);
+    return 0;
 }
 
-
-
+void copyTo(unsigned char *destination, unsigned char *overlap, int from, int to){
+   for(unsigned char i = from; i < to; i++){
+     overlap[i] = destination[i];
+   }
+}
 
 
 
@@ -210,4 +243,3 @@ int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data) {
     }
     return 0;
 }
-

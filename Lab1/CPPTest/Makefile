@@ -1,7 +1,7 @@
 
 EXECS=blurc thresc
 MPICXX?=mpicxx
-CXXFLAGS= -std=c++17
+CXXFLAGS= -std=c++11
 
 all: ${EXECS}
 
