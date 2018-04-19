@@ -81,33 +81,35 @@ int main(int argc, char *argv[]) {
     auto overlap_top_recv = new unsigned char[radius*xsize*2*3];
     auto overlap_bottom_recv = new unsigned char[radius*xsize*2*3];
 
-    int from2 = split*xsize*3 - radius*xsize*3;
-    int to2 = split*xsize*3;
+    int bot_from = split*xsize*3 - radius*xsize*3;
+    int bot_to = split*xsize*3;
 
-    int to1 = radius*xsize*3;
+    int top_to = radius*xsize*3;
     auto overlap_bottom_send = new unsigned char[radius*xsize*3];
     auto overlap_top_send = new unsigned char[radius*xsize*3];
 
     if(rank == root){
-      overlap_bottom_send = copyTo(dst, overlap_bottom_send, from2, to2);
-      MPI_Send(&overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
-      MPI_Recv(&overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        //overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
+        MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
+        MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     }
     else if(rank == world-1){
-        overlap_top_send = copyTo(dst, overlap_top_send, 0, to2);
-        MPI_Send(&overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
-        MPI_Recv(&overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        //overlap_top_send = copyTo(dst, overlap_top_send, 0, top_to);
+        MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
+
     }
     else{
-      overlap_bottom_send = copyTo(dst, overlap_bottom_send, from2, to2);
-      overlap_top_send = copyTo(dst, overlap_top_send, 0, to2);
+        //overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
+        //overlap_top_send = copyTo(dst, overlap_top_send, 0, bot_to);
+        MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-      MPI_Send(&overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
-      MPI_Send(&overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
+        MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
 
-      MPI_Recv(&overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      MPI_Recv(&overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
     }
 
 
