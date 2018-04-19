@@ -1,14 +1,14 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
 #include "ppmio.h"
 #include "thresfilter.h"
 
 int main (int argc, char ** argv) {
     int xsize, ysize, colmax;
-    pixel src[MAX_PIXELS];
-    struct timespec stime, etime;
+    auto * src = new pixel[MAX_PIXELS];
+    struct timespec stime{}, etime{};
 
     /* Take care of the arguments */
 
@@ -43,6 +43,6 @@ int main (int argc, char ** argv) {
     if(write_ppm (argv[2], xsize, ysize, (char *)src) != 0)
       exit(1);
 
-
+    delete(src);
     return(0);
 }

@@ -7,6 +7,8 @@
 #include <cstdio>
 #include "blurfilter.h"
 #include "ppmio.h"
+#include <mpi.h>
+#include <ctgmath>
 
 
 pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
@@ -21,69 +23,38 @@ pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
   return (image + off);
 }
 
-void blurfilter(const int xsize, const int ysize, pixel* src, const int radius, const double *w){
-  int x,y,x2,y2, wi;
-  double r,g,b,n, wc;
-  pixel dst[MAX_PIXELS];
+void blurfilter(const int xsize, const int ysize, unsigned char *src, unsigned char *dst, const int radius, const double *w) {
 
+    int rank{}, world{}, root{0};
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world);
 
-  for (y=0; y<ysize; y++) {
-    for (x=0; x<xsize; x++) {
-      r = w[0] * pix(src, x, y, xsize)->r;
-      g = w[0] * pix(src, x, y, xsize)->g;
-      b = w[0] * pix(src, x, y, xsize)->b;
-      n = w[0];
-      for ( wi=1; wi <= radius; wi++) {
-	wc = w[wi];
-	x2 = x - wi;
-	if(x2 >= 0) {
-	  r += wc * pix(src, x2, y, xsize)->r;
-	  g += wc * pix(src, x2, y, xsize)->g;
-	  b += wc * pix(src, x2, y, xsize)->b;
-	  n += wc;
-	}
-	x2 = x + wi;
-	if(x2 < xsize) {
-	  r += wc * pix(src, x2, y, xsize)->r;
-	  g += wc * pix(src, x2, y, xsize)->g;
-	  b += wc * pix(src, x2, y, xsize)->b;
-	  n += wc;
-	}
-      }
-      pix(dst,x,y, xsize)->r = r/n;
-      pix(dst,x,y, xsize)->g = g/n;
-      pix(dst,x,y, xsize)->b = b/n;
+    auto split = (int)std::ceil(ysize/world);
+
+    int from = split * rank;
+    int to = from + split;
+
+    int x, y;
+
+    for(int r = from; r<to; r++) {
+        for(int c = 0; c<xsize; c++) {
+
+            //dst[xsize*r*3 + c*3 + 0] = 0;
+            //dst[xsize*r*3 + c*3 + 1] = 0;
+            //dst[xsize*r*3 + c*3 + 2] = 0;
+
+            for (x = -radius; x <= radius; x++) {
+                for (y = -radius; y <= radius; y++) {
+                    if(!(c+x<0 || c+x>xsize || r+y<0 || r+y>ysize)){
+                        //src[xsize*r*3 + c*3 + 0] += src[xsize*3*(from+r+y) + (c+x)*3 + 0] / (radius*radius);
+                        //src[xsize*r*3 + c*3 + 1] += src[xsize*3*(from+r+y) + (c+x)*3 + 1] / (radius*radius);
+                        //src[xsize*r*3 + c*3 + 2] += src[xsize*3*(from+r+y) + (c+x)*3 + 2] / (radius*radius);
+                    }
+                }
+            }
+
+        }
     }
-  }
-
-  for (y=0; y<ysize; y++) {
-    for (x=0; x<xsize; x++) {
-      r = w[0] * pix(dst, x, y, xsize)->r;
-      g = w[0] * pix(dst, x, y, xsize)->g;
-      b = w[0] * pix(dst, x, y, xsize)->b;
-      n = w[0];
-      for ( wi=1; wi <= radius; wi++) {
-	wc = w[wi];
-	y2 = y - wi;
-	if(y2 >= 0) {
-	  r += wc * pix(dst, x, y2, xsize)->r;
-	  g += wc * pix(dst, x, y2, xsize)->g;
-	  b += wc * pix(dst, x, y2, xsize)->b;
-	  n += wc;
-	}
-	y2 = y + wi;
-	if(y2 < ysize) {
-	  r += wc * pix(dst, x, y2, xsize)->r;
-	  g += wc * pix(dst, x, y2, xsize)->g;
-	  b += wc * pix(dst, x, y2, xsize)->b;
-	  n += wc;
-	}
-      }
-      pix(src,x,y, xsize)->r = r/n;
-      pix(src,x,y, xsize)->g = g/n;
-      pix(src,x,y, xsize)->b = b/n;
-    }
-  }
 
 }
 

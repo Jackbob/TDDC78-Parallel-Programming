@@ -11,12 +11,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(blur
         blurmain.cpp
-        ppm.cpp
-        ppm.h
-        ppmio.cpp
-        ppmio.h
-        gaussw.cpp
-        gaussw.h
         blurfilter.cpp
         blurfilter.h
         )

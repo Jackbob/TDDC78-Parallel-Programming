@@ -9,8 +9,7 @@
 #include <cstring>
 #include "ppmio.h"
 
-int read_ppm (const char * fname, 
-	       int * xpix, int * ypix, int * max, char * data) {
+int read_ppm (const char * fname, int * xpix, int * ypix, int * max, char * data) {
   char ftype[40];
   char ctype[40] = "P6";
   char line[80];
@@ -38,7 +37,8 @@ int read_ppm (const char * fname,
   if(*xpix * *ypix > MAX_PIXELS) {
      fprintf (stderr, "Image size is too big\n");
     return 4;
- };
+  };
+
 
   if (strncmp(ftype, ctype, 2) == 0) {
     if (fread (data, sizeof (char), *xpix * *ypix * 3, fp) !=
@@ -54,6 +54,8 @@ int read_ppm (const char * fname,
     perror ("Close failed");
     return 3;
   }
+
+
   return 0;
 
 }
