@@ -35,7 +35,7 @@ void blurfilter(const int xsize, const int ysize, unsigned char *src, unsigned c
     int to = from + split;
 
     int x{}, y{};
-    /*
+
     for(int r = from; r<to; r++) {
         for(int c = 0; c<xsize; c++) {
             dst[xsize*(r-from)*3 + c*3 + 0] = 0;
@@ -59,6 +59,5 @@ void blurfilter(const int xsize, const int ysize, unsigned char *src, unsigned c
 
         }
     }
-    */
 
 }
