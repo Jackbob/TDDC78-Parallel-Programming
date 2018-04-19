@@ -31,7 +31,8 @@ int main(int argc, char *argv[]) {
     std::cout << "Rank " << rank << " out of " << world << "\n";
     int radius;
     int xsize, ysize, colmax;
-    auto src = new unsigned char[MAX_PIXELS * 3];
+    unsigned char* src;
+    unsigned char* newsrc;
 
 #define MAX_RAD 1000
     struct timespec stime{}, etime{};
@@ -39,6 +40,10 @@ int main(int argc, char *argv[]) {
 
 
     if(rank == root) {
+
+        src = new unsigned char[MAX_PIXELS * 3];
+        newsrc = new unsigned char[MAX_PIXELS * 3];
+
         /* Take care of the arguments */
         if (argc != 4) {
             fprintf(stderr, "Usage: %s radius infile outfile\n", argv[0]);
@@ -114,9 +119,9 @@ int main(int argc, char *argv[]) {
 
     printf("Calling filter\n");
 
-    //blurfilter(xsize, ysize, overlap, dst, radius, w);
+    blurfilter(xsize, ysize, overlap_top_recv, overlap_bottom_recv, dst, radius, w);
 
-    MPI_Gather(dst, split*xsize*3, MPI_UNSIGNED_CHAR, src, split*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    MPI_Gather(dst, split*xsize*3, MPI_UNSIGNED_CHAR, newsrc, split*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     if(rank == root) {
         /* write result */
@@ -126,7 +131,7 @@ int main(int argc, char *argv[]) {
         printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
                                             1e-9 * (etime.tv_nsec - stime.tv_nsec));
 
-        if (write_ppm(argv[3], xsize, ysize, src) != 0)
+        if (write_ppm(argv[3], xsize, ysize, newsrc) != 0)
             return 1;
     }
 
@@ -136,8 +141,9 @@ int main(int argc, char *argv[]) {
     delete[] overlap_top_recv;
     delete[] dst;
     delete[] src;
+    delete[] newsrc;
     MPI_Finalize();
-    return 0;
+    return (0);
 }
 
 unsigned char* copyTo(unsigned char *destination, unsigned char *overlap, int from, int to){

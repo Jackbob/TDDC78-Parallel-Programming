@@ -23,7 +23,7 @@ pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
   return (image + off);
 }
 
-void blurfilter(const int xsize, const int ysize, unsigned char *src, unsigned char *dst, const int radius, const double *w) {
+void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, unsigned char* overlap_bot, unsigned char *dst, const int radius, const double *w) {
 
     int rank{}, world{}, root{0};
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -31,33 +31,49 @@ void blurfilter(const int xsize, const int ysize, unsigned char *src, unsigned c
 
     auto split = (int)std::ceil(ysize/world);
 
-    int from = split * rank;
-    int to = from + split;
-
     int x{}, y{};
+    double wc{}, n{};
 
-    for(int r = from; r<to; r++) {
+
+    for(int row = 0; row<split; row++) {
         for(int c = 0; c<xsize; c++) {
-            dst[xsize*(r-from)*3 + c*3 + 0] = 0;
-            dst[xsize*(r-from)*3 + c*3 + 1] = 0;
-            dst[xsize*(r-from)*3 + c*3 + 2] = 0;
-            int n = 0;
+            unsigned char r = 0;
+            unsigned char g = 0;
+            unsigned char b = 0;
+
+            n = w[0];
             for (x = -radius; x <= radius; x++) {
                 for (y = -radius; y <= radius; y++) {
-                    if(!(c+x<0 || c+x>xsize || r+y<0 || r+y>ysize)){
-                        dst[xsize*r*3 + c*3 + 0] += src[xsize*3*(from+r+y) + (c+x)*3 + 0];
-                        dst[xsize*r*3 + c*3 + 1] += src[xsize*3*(from+r+y) + (c+x)*3 + 1];
-                        dst[xsize*r*3 + c*3 + 2] += src[xsize*3*(from+r+y) + (c+x)*3 + 2];
-                        n++;
+                    wc = w[std::max(abs(x), abs(y))];
+                    if(!(c+x<0 || c+x>xsize)){
+                        if( row+y < 0  && rank != root){
+                            r += wc * overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 0];
+                            g += wc * overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 1];
+                            b += wc * overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 2];
+                            n += wc;
+                        }
+                        else if( row+y > ysize && rank != world-1){
+                            r += wc * overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 0];
+                            g += wc * overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 1];
+                            b += wc * overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 2];
+                            n += wc;
+                        }
+                        else {
+                            r += wc * dst[xsize * 3*(row+y) + (c+x)*3 + 0];
+                            g += wc * dst[xsize * 3*(row+y) + (c+x)*3 + 1];
+                            b += wc * dst[xsize * 3*(row+y) + (c+x)*3 + 2];
+                            n += wc;
+                        }
                     }
                 }
             }
 
-            dst[xsize*r*3 + c*3 + 0] = dst[xsize*3*(from+r+y) + (c+x)*3 + 0] / n;
-            dst[xsize*r*3 + c*3 + 1] = dst[xsize*3*(from+r+y) + (c+x)*3 + 1] / n;
-            dst[xsize*r*3 + c*3 + 2] = dst[xsize*3*(from+r+y) + (c+x)*3 + 2] / n;
+            dst[xsize*row*3 + c*3 + 0] = static_cast<unsigned char>(r / n);
+            dst[xsize*row*3 + c*3 + 1] = static_cast<unsigned char>(g / n);
+            dst[xsize*row*3 + c*3 + 2] = static_cast<unsigned char>(b / n);
 
         }
     }
+
 
 }
