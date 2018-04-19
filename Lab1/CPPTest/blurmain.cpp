@@ -89,26 +89,25 @@ int main(int argc, char *argv[]) {
     auto overlap_top_send = new unsigned char[radius*xsize*3];
 
     if(rank == root){
-        //overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
+        overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
+
         MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
         MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     }
     else if(rank == world-1){
-        //overlap_top_send = copyTo(dst, overlap_top_send, 0, top_to);
+        overlap_top_send = copyTo(dst, overlap_top_send, 0, top_to);
+
         MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
-
     }
     else{
-        //overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
-        //overlap_top_send = copyTo(dst, overlap_top_send, 0, bot_to);
+        overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
+        overlap_top_send = copyTo(dst, overlap_top_send, 0, top_to);
+
         MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
         MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
-
         MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
         MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
     }
 
@@ -144,7 +143,7 @@ int main(int argc, char *argv[]) {
 unsigned char* copyTo(unsigned char *destination, unsigned char *overlap, int from, int to){
     std::cout << "yay" << std::endl;
    for(auto i = from; i < to; i++){
-     overlap[i] = destination[i];
+     overlap[i-from] = destination[i];
    }
    return overlap;
 }
