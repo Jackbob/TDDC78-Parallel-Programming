@@ -79,19 +79,22 @@ int main(int argc, char *argv[]) {
 
 
     int ysplit = ysize/world;
+    int rest = ysize%world;
+    int give = rest==0 ? 0 : 1;
+    int steal = world - 1 - rest;
     int* sendcounts = new int[world];
     int* displace = new int[world];
     for(int i=0; i<world; i++) {
-        sendcounts[i] = ysplit * xsize * 3;
-        displace[i] = ysplit * xsize * 3 * i ;
+        sendcounts[i] = (ysplit+give) * xsize * 3;
+        displace[i] = (ysplit+give+1) * xsize * 3 * i;
     }
 
-    if(ysize%world != 0)
-        sendcounts[world-1] = ((ysize%world) + ysplit) * xsize * 3;
+    if(rest != 0)
+        sendcounts[world-1] = (ysplit - steal) * xsize * 3;
 
     auto dst = new unsigned char[sendcounts[rank]];
 
-    MPI_Scatterv(src, sendcounts, displace, MPI_UNSIGNED_CHAR, dst, (ysplit+world)*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    MPI_Scatterv(src, sendcounts, displace, MPI_UNSIGNED_CHAR, dst, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     auto overlap_top_recv = new unsigned char[radius*xsize*3];
     auto overlap_bottom_recv = new unsigned char[radius*xsize*3];
@@ -128,9 +131,9 @@ int main(int argc, char *argv[]) {
 
     printf("Calling filter\n");
 
-    //blurfilter(xsize, sendcounts[rank], overlap_top_recv, overlap_bottom_recv, dst, radius, w);
+    blurfilter(xsize, sendcounts[rank]/(xsize*3), overlap_top_recv, overlap_bottom_recv, dst, radius, w);
 
-    MPI_Gather(dst, ysplit*xsize*3, MPI_UNSIGNED_CHAR, newsrc, ysplit*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    MPI_Gather(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     if(rank == root) {
         /* write result */

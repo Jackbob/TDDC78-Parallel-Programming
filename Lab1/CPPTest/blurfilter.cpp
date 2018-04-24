@@ -5,6 +5,7 @@
 
  */
 #include <cstdio>
+#include 
 #include "blurfilter.h"
 #include "ppmio.h"
 #include <mpi.h>
@@ -31,50 +32,53 @@ void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, un
 
     int x{}, y{};
     double wc{}, n{};
-
+    unsigned char* copy = new unsigned char[xsize*ysize*3];
+    for(int i=0; i<xsize*ysize*3; i++)
+      copy[i] = dst[i];
 
     for(int row = 0; row < ysize; row++) {
         for(int c = 0; c < xsize; c++) {
-            unsigned char r = 0;
-            unsigned char g = 0;
-            unsigned char b = 0;
+            double r = 0;
+            double g = 0;
+            double b = 0;
 
             n = 0;
             for (x = -radius; x <= radius; x++) {
                 for (y = -radius; y <= radius; y++) {
+
                     wc = w[std::max(abs(x), abs(y))];
                     if(!c+x < 0 || !c+x > xsize){
-
+                        std::cout
                         if( row+y < 0  && rank != root){
 
-                            r += overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 0];
-                            g += overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 1];
-                            b += overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 2];
-                            n += 1;
+                            r += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 0]);
+                            g += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 1]);
+                            b += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 2]);
+                            n += wc;
                         }
                         else if( row+y > ysize && rank != world-1){
 
-                            r += overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 0];
-                            g += overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 1];
-                            b += overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 2];
-                            n += 1;
+                            r += wc * static_cast<double>(overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 0]);
+                            g += wc * static_cast<double>(overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 1]);
+                            b += wc * static_cast<double>(overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 2]);
+                            n += wc;
                         }
                         else {
 
-                            //r += wc * dst[xsize*3 * (row+y) + (c+x)*3 + 0];
-                            //g += wc * dst[xsize*3 * (row+y) + (c+x)*3 + 0];
-                            //b += wc * dst[xsize*3 * (row+y) + (c+x)*3 + 0];
-                            //n += wc;
+                            r += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 0]);
+                            g += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 1]);
+                            b += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 2]);
+                            n += wc;
 
                         }
-
                     }
+
                 }
             }
 
-            dst[xsize*row*3 + c*3 + 0] = (r / n);
-            dst[xsize*row*3 + c*3 + 1] = (g / n);
-            dst[xsize*row*3 + c*3 + 2] = (b / n);
+            dst[xsize*row*3 + c*3 + 0] = (unsigned char)(r / n);
+            dst[xsize*row*3 + c*3 + 1] = (unsigned char)(g / n);
+            dst[xsize*row*3 + c*3 + 2] = (unsigned char)(b / n);
 
         }
     }
