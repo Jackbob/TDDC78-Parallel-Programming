@@ -78,16 +78,26 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&radius, 1, MPI_INT, root, MPI_COMM_WORLD);
 
 
-    auto split = (int)std::ceil(ysize/world);
-    auto dst = new unsigned char[split*xsize*3];
+    int ysplit = ysize/world;
+    int* sendcounts = new int[world];
+    int* displace = new int[world];
+    for(int i=0; i<world; i++) {
+        sendcounts[i] = ysplit * xsize * 3;
+        displace[i] = ysplit * xsize * 3 * i ;
+    }
 
-    MPI_Scatter(src, xsize*split*3, MPI_UNSIGNED_CHAR, dst, xsize*split*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    if(ysize%world != 0)
+        sendcounts[world-1] = ((ysize%world) + ysplit) * xsize * 3;
 
-    auto overlap_top_recv = new unsigned char[radius*xsize*2*3];
-    auto overlap_bottom_recv = new unsigned char[radius*xsize*2*3];
+    auto dst = new unsigned char[sendcounts[rank]];
 
-    int bot_from = split*xsize*3 - radius*xsize*3;
-    int bot_to = split*xsize*3;
+    MPI_Scatterv(src, sendcounts, displace, MPI_UNSIGNED_CHAR, dst, (ysplit+world)*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+
+    auto overlap_top_recv = new unsigned char[radius*xsize*3];
+    auto overlap_bottom_recv = new unsigned char[radius*xsize*3];
+
+    int bot_from = ysplit*xsize*3 - radius*xsize*3;
+    int bot_to = ysplit*xsize*3;
 
     int top_to = radius*xsize*3;
     auto overlap_bottom_send = new unsigned char[radius*xsize*3];
@@ -98,7 +108,6 @@ int main(int argc, char *argv[]) {
 
         MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
         MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
     }
     else if(rank == world-1){
         overlap_top_send = copyTo(dst, overlap_top_send, 0, top_to);
@@ -119,9 +128,9 @@ int main(int argc, char *argv[]) {
 
     printf("Calling filter\n");
 
-    blurfilter(xsize, ysize, overlap_top_recv, overlap_bottom_recv, dst, radius, w);
+    //blurfilter(xsize, sendcounts[rank], overlap_top_recv, overlap_bottom_recv, dst, radius, w);
 
-    MPI_Gather(dst, split*xsize*3, MPI_UNSIGNED_CHAR, newsrc, split*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    MPI_Gather(dst, ysplit*xsize*3, MPI_UNSIGNED_CHAR, newsrc, ysplit*xsize*3, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     if(rank == root) {
         /* write result */
@@ -147,7 +156,6 @@ int main(int argc, char *argv[]) {
 }
 
 unsigned char* copyTo(unsigned char *destination, unsigned char *overlap, int from, int to){
-    std::cout << "yay" << std::endl;
    for(auto i = from; i < to; i++){
      overlap[i-from] = destination[i];
    }
