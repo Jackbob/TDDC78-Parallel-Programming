@@ -71,12 +71,13 @@ int main(int argc, char *argv[]) {
     }
 
     /* filter */
-    get_gauss_weights(radius, w);
 
     MPI_Bcast(&xsize, 1, MPI_INT, root, MPI_COMM_WORLD);
     MPI_Bcast(&ysize, 1, MPI_INT, root, MPI_COMM_WORLD);
     MPI_Bcast(&radius, 1, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Bcast(&w, 1, MPI_INT, root, MPI_COMM_WORLD);
 
+    get_gauss_weights(radius, w);
 
     int ysplit = ysize/world;
     int rest = ysize%world;
@@ -128,7 +129,6 @@ int main(int argc, char *argv[]) {
         MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
     }
 
-
     printf("Calling filter\n");
 
     blurfilter(xsize, sendcounts[rank]/(xsize*3), overlap_top_recv, overlap_bottom_recv, dst, radius, w);
@@ -146,14 +146,16 @@ int main(int argc, char *argv[]) {
         if (write_ppm(argv[3], xsize, ysize, newsrc) != 0)
             return 1;
     }
-
+    if(root == rank){
+      delete[] src;
+      delete[] newsrc;
+    }
     delete[] overlap_bottom_send;
     delete[] overlap_top_send;
     delete[] overlap_bottom_recv;
     delete[] overlap_top_recv;
     delete[] dst;
-    delete[] src;
-    delete[] newsrc;
+
     MPI_Finalize();
     return (0);
 }

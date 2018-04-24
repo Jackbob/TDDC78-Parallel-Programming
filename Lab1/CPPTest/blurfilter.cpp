@@ -5,11 +5,11 @@
 
  */
 #include <cstdio>
-#include 
 #include "blurfilter.h"
 #include "ppmio.h"
 #include <mpi.h>
 #include <ctgmath>
+#include <iostream>
 
 
 pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
@@ -33,8 +33,11 @@ void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, un
     int x{}, y{};
     double wc{}, n{};
     unsigned char* copy = new unsigned char[xsize*ysize*3];
-    for(int i=0; i<xsize*ysize*3; i++)
+    for(int i=0; i<xsize*ysize*3; i++){
       copy[i] = dst[i];
+      //if(rank == 1)
+        //std::cout << static_cast<double>(copy[i]) << std::endl;
+    }
 
     for(int row = 0; row < ysize; row++) {
         for(int c = 0; c < xsize; c++) {
@@ -48,13 +51,14 @@ void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, un
 
                     wc = w[std::max(abs(x), abs(y))];
                     if(!c+x < 0 || !c+x > xsize){
-                        std::cout
+
                         if( row+y < 0  && rank != root){
 
                             r += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 0]);
                             g += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 1]);
                             b += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 2]);
                             n += wc;
+
                         }
                         else if( row+y > ysize && rank != world-1){
 
@@ -62,6 +66,7 @@ void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, un
                             g += wc * static_cast<double>(overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 1]);
                             b += wc * static_cast<double>(overlap_bot[xsize * 3*(radius+y) + (c+x)*3 + 2]);
                             n += wc;
+
                         }
                         else {
 
@@ -75,13 +80,16 @@ void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, un
 
                 }
             }
-
+            /*if(rank == 0){
+              std::cout << (r / n) << std::endl;
+            }*/
             dst[xsize*row*3 + c*3 + 0] = (unsigned char)(r / n);
             dst[xsize*row*3 + c*3 + 1] = (unsigned char)(g / n);
             dst[xsize*row*3 + c*3 + 2] = (unsigned char)(b / n);
 
         }
     }
+    delete[] copy;
 
 
 }
