@@ -42,7 +42,6 @@ int main(int argc, char *argv[]) {
     struct timespec stime{}, etime{};
 
     src = new unsigned char[MAX_PIXELS * 3];
-    newsrc = new unsigned char[MAX_PIXELS * 3];
 
     if (argc != 3) {
       std::cerr << "Usage: %s infile outfile\n" << argv[0] << std::endl;
@@ -91,11 +90,26 @@ int main(int argc, char *argv[]) {
         pthread_join(t, &status);
     }
 
-    std::cout << avg << std::endl;
+    unsigned int thres_val = avg/(xsize*ysize*3);
+    std::cout << thres_val << std::endl;
 
-    //unsigned char mean = static_cast<unsigned char>(sum/(xsize*ysize*3));
+    from = 0;
+    to = 0;
 
-    //thresfilter(xsize, sendcounts[rank]/(xsize*3), src, newsrc, mean);
+    struct thres_data thres[num_processor];
+    for(int i = 0; i < num_processor; i++){
+        from = to;
+        to = to + splitcounts[i];
+        thres[i].src = src;
+        thres[i].from = from;
+        thres[i].to = to;
+        thres[i].avg = thres_val;
+        pthread_create(&threads[i], nullptr, thresfilter, (void*)&thres[i]);
+    }
+
+    for(auto t : threads){
+        pthread_join(t, &status);
+    }
 
     std::cout << "Calling filter" << std::endl;
 
@@ -104,11 +118,10 @@ int main(int argc, char *argv[]) {
     std::cout << "Filtering took " << (etime.tv_sec - stime.tv_sec) +
                                      1e-9 * (etime.tv_nsec - stime.tv_nsec) << " secs" << std::endl;
 
-    if (write_ppm(argv[2], xsize, ysize, newsrc) != 0)
+    if (write_ppm(argv[2], xsize, ysize, src) != 0)
         return 1;
 
     delete[] src;
-    delete[] newsrc;
 
     return (0);
 }
@@ -124,7 +137,7 @@ void* average_pix(void* avg){
 
     std::cout << localsum << std::endl;
     pthread_mutex_lock( &mutex );
-    *(data->avg) += localsum / (data->to - data->from);
+    *(data->avg) += localsum;
     pthread_mutex_unlock( &mutex );
 
     pthread_exit(nullptr);

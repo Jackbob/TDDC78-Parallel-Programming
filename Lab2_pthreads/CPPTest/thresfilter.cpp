@@ -1,14 +1,16 @@
 #include "thresfilter.h"
+#include <pthread.h>
 
-/*void thresfilter(const int xsize, const int ysize, unsigned char* src,unsigned char* newsrc unsigned char mean){
-
-unsigned char psum;
-for(int i = 0; i < xsize*ysize*3; i+=3){
-  psum = src[i] + src[i+1] + src[i+2];
-  if(mean > psum)
-     src[i] = src[i+1] = src[i+2] = 0;
-  else
-    src[i] = src[i+1] = src[i+2] = 255;
+void* thresfilter(void* thres){
+  struct thres_data *data;
+  data = (struct thres_data*) thres;
+  unsigned char psum;
+  for(int i = data->from; i < data->to; i+=3){
+    psum = data->src[i] + data->src[i+1] + data->src[i+2];
+    if(data->avg > psum)
+      data->src[i] = data->src[i+1] = data->src[i+2] = 0;
+    else
+      data->src[i] = data->src[i+1] = data->src[i+2] = 255;
   }
-
-}*/
+  pthread_exit(nullptr);
+}
