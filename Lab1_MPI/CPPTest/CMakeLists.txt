@@ -18,10 +18,6 @@ add_executable(blur
 
 add_executable(thresh
         thresmain.cpp
-        ppm.cpp
-        ppm.h
-        ppmio.cpp
-        ppmio.h
         thresfilter.cpp
         thresfilter.h
         )
