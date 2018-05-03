@@ -19,6 +19,16 @@
 
 int read_ppm (const char * fname, int * xpix, int * ypix, int * max, unsigned char * data);
 int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data);
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+void* average_pix(unsigned char* src, int from, int to, unsigned int& avg);
+
+struct avg_data{
+public:
+    unsigned char* src;
+    int from;
+    int to;
+    unsigned int &avg;
+};
 
 int main(int argc, char *argv[]) {
     unsigned int num_processor = std::thread::hardware_concurrency();
@@ -59,11 +69,16 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Calling filter" << std::endl;
 
-    /*unsigned int local_sum{0},sum{0};
+    unsigned int avg{0};
 
-    for(int i = 0; i < splitcounts; i++){
-      local_sum += src[i];
-    }*/
+    int from{0}, to{0};
+
+    for(int i = 0; i < num_processor; i++){
+        from = to;
+        to = to + splitcounts[i];
+        struct avg_data data{src, from, to, avg};
+        pthread_create(&threads[i], nullptr, average_pix, (void*)&data);
+    }
 
     //unsigned char mean = static_cast<unsigned char>(sum/(xsize*ysize*3));
 
@@ -85,6 +100,19 @@ int main(int argc, char *argv[]) {
     return (0);
 }
 
+
+void* average_pix(void* avg){
+    struct avg_data *data;
+    data = (struct avg_data*) avg;
+    unsigned int localsum{0};
+    for(int i = data->from; i<data->to; i++)
+        localsum += data->src[i];
+
+    pthread_mutex_lock( &mutex );
+    data->avg += localsum / (data->to - data->from);
+    pthread_mutex_unlock( &mutex );
+
+}
 
 /* Function: read_ppm - reads data from an image file in PPM format.
    Input: fname - name of an image file in PPM format to read.
