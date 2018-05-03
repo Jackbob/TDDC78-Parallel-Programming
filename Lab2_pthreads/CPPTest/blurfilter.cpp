@@ -6,7 +6,6 @@
  */
 #include <cstdio>
 #include "blurfilter.h"
-#include "ppmio.h"
 #include <mpi.h>
 #include <ctgmath>
 #include <iostream>

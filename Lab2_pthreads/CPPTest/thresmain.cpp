@@ -131,11 +131,9 @@ void* average_pix(void* avg){
     struct avg_data *data;
     data = (struct avg_data*) avg;
     unsigned int localsum{0};
-    std::cout << data->from << " " << data->to << std::endl;
     for(int i = data->from; i < data->to; i++)
         localsum += data->src[i];
 
-    std::cout << localsum << std::endl;
     pthread_mutex_lock( &mutex );
     *(data->avg) += localsum;
     pthread_mutex_unlock( &mutex );
