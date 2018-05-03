@@ -35,8 +35,6 @@ void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, un
     unsigned char* copy = new unsigned char[xsize*ysize*3];
     for(int i=0; i<xsize*ysize*3; i++){
       copy[i] = dst[i];
-        //if(rank == 0 && static_cast<double>(copy[i]) < DBL_EPSILON)
-          //std::cout << static_cast<double>(copy[i]) << std::endl;
     }
 
     for(int row = 0; row < ysize; row++) {
@@ -68,9 +66,8 @@ void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, un
                             n += wc;
 
                         }
-                        else {
-                          /*if(static_cast<double>(copy[xsize * 3*(radius+y) + (c+x)*3 + 0]) == 0.0)
-                            std::cout << "GG" << std::endl;*/
+                        else if( row+y < ysize && row+y >= 0){
+
                             r += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 0]);
                             g += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 1]);
                             b += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 2]);

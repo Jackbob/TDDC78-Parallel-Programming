@@ -139,7 +139,6 @@ int main(int argc, char *argv[]) {
     blurfilter(xsize, sendcounts[rank]/(xsize*3), overlap_top_recv, overlap_bottom_recv, dst, radius, w);
 
     MPI_Gather(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
-    //MPI_Gatherv(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts, displace, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     if(rank == root) {
         /* write result */
