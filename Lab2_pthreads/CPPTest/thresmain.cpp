@@ -20,20 +20,20 @@
 int read_ppm (const char * fname, int * xpix, int * ypix, int * max, unsigned char * data);
 int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data);
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-void* average_pix(unsigned char* src, int from, int to, unsigned int& avg);
+void* average_pix(void* avg);
 
 struct avg_data{
 public:
     unsigned char* src;
     int from;
     int to;
-    unsigned int &avg;
+    unsigned int *avg;
 };
 
 int main(int argc, char *argv[]) {
     unsigned int num_processor = std::thread::hardware_concurrency();
-    std::cout << num_processor << std::endl;
-    std::vector<pthread_t> threads{num_processor};
+    std::cout << "Number of processors: " <<  num_processor << std::endl;
+    std::vector<pthread_t> threads(num_processor);
     
     int xsize, ysize, colmax;
     unsigned char* src;
@@ -57,28 +57,41 @@ int main(int argc, char *argv[]) {
           std::cerr << "Too large maximum color-component value\n" << std::endl;
     }
 
-    std::cout << "Has read the image, generating coefficients <<" std::endl;
+    std::cout << "Has read the image, generating coefficients " << std::endl;
 
     clock_gettime(CLOCK_REALTIME, &stime);
 
     int ysplit = ysize/num_processor;
     int rest = ysize%num_processor;
-    std::vector<unsigned int> splitcounts(num_processor, ysplit);
-    splitcounts[num_processor-1] += rest;
+    std::vector<unsigned int> splitcounts(num_processor, ysplit*xsize*3);
+    splitcounts[num_processor-1] += rest*xsize*3;
     std::copy(splitcounts.begin(), splitcounts.end(), std::ostream_iterator<unsigned int>(std::cout, " "));
 
+    std::cout << std::endl;
     std::cout << "Calling filter" << std::endl;
 
     unsigned int avg{0};
 
     int from{0}, to{0};
+    struct avg_data data[num_processor];
 
     for(int i = 0; i < num_processor; i++){
         from = to;
         to = to + splitcounts[i];
-        struct avg_data data{src, from, to, avg};
-        pthread_create(&threads[i], nullptr, average_pix, (void*)&data);
+        data[i].src = src;
+        data[i].from = from;
+        data[i].to = to;
+        data[i].avg = &avg;
+        std::cout << "main() : Creating thread " << i << std::endl;
+        pthread_create(&threads[i], nullptr, average_pix, (void*)&data[i]);
     }
+
+    void *status;
+    for(auto t : threads){
+        pthread_join(t, &status);
+    }
+
+    std::cout << avg << std::endl;
 
     //unsigned char mean = static_cast<unsigned char>(sum/(xsize*ysize*3));
 
@@ -88,7 +101,7 @@ int main(int argc, char *argv[]) {
 
     clock_gettime(CLOCK_REALTIME, &etime);
 
-    std::cout << "Filtering took" << (etime.tv_sec - stime.tv_sec) +
+    std::cout << "Filtering took " << (etime.tv_sec - stime.tv_sec) +
                                      1e-9 * (etime.tv_nsec - stime.tv_nsec) << " secs" << std::endl;
 
     if (write_ppm(argv[2], xsize, ysize, newsrc) != 0)
@@ -105,13 +118,16 @@ void* average_pix(void* avg){
     struct avg_data *data;
     data = (struct avg_data*) avg;
     unsigned int localsum{0};
-    for(int i = data->from; i<data->to; i++)
+    std::cout << data->from << " " << data->to << std::endl;
+    for(int i = data->from; i < data->to; i++)
         localsum += data->src[i];
 
+    std::cout << localsum << std::endl;
     pthread_mutex_lock( &mutex );
-    data->avg += localsum / (data->to - data->from);
+    *(data->avg) += localsum / (data->to - data->from);
     pthread_mutex_unlock( &mutex );
 
+    pthread_exit(nullptr);
 }
 
 /* Function: read_ppm - reads data from an image file in PPM format.
