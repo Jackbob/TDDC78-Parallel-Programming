@@ -18,7 +18,6 @@
 int read_ppm (const char * fname, int * xpix, int * ypix, int * max, unsigned char * data);
 int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data);
 void get_gauss_weights(int n, double* weights_out);
-unsigned char*  copyTo(unsigned char *destination, unsigned char *overlap, int from, int to);
 
 int main(int argc, char *argv[]) {
 
@@ -108,20 +107,26 @@ int main(int argc, char *argv[]) {
     auto overlap_top_send = new unsigned char[radius*xsize*3];
 
     if(rank == root){
-        overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
+      for(int i=0; i<xsize*radius*3; i++){
+        overlap_bottom_send[i] = dst[i + (sendcounts[rank] - xsize*radius*3)];
+      }
 
         MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
         MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
     else if(rank == world-1){
-        overlap_top_send = copyTo(dst, overlap_top_send, 0, top_to);
+        for(int i=0; i<xsize*radius*3; i++){
+          overlap_top_send[i] = dst[i];
+        }
 
         MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
     }
     else{
-        overlap_bottom_send = copyTo(dst, overlap_bottom_send, bot_from, bot_to);
-        overlap_top_send = copyTo(dst, overlap_top_send, 0, top_to);
+        for(int i=0; i<xsize*radius*3; i++){
+          overlap_top_send[i] = dst[i];
+          overlap_bottom_send[i] = dst[i + (sendcounts[rank] - xsize*radius*3)];
+        }
 
         MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
@@ -134,6 +139,7 @@ int main(int argc, char *argv[]) {
     blurfilter(xsize, sendcounts[rank]/(xsize*3), overlap_top_recv, overlap_bottom_recv, dst, radius, w);
 
     MPI_Gather(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    //MPI_Gatherv(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts, displace, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
 
     if(rank == root) {
         /* write result */
@@ -159,14 +165,6 @@ int main(int argc, char *argv[]) {
     MPI_Finalize();
     return (0);
 }
-
-unsigned char* copyTo(unsigned char *destination, unsigned char *overlap, int from, int to){
-   for(auto i = from; i < to; i++){
-     overlap[i-from] = destination[i];
-   }
-   return overlap;
-}
-
 
 
 /* Generate an array of weights for the gaussian filter. */

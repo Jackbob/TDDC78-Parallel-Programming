@@ -1,25 +1,14 @@
 #include "thresfilter.h"
 
-void thresfilter(const int xsize, const int ysize, unsigned char* src){
-#define uint unsigned int 
+void thresfilter(const int xsize, const int ysize, unsigned char* src, unsigned char mean){
 
-  uint sum, i, psum, nump;
-
-  nump = xsize * ysize;
-
-  for(i = 0, sum = 0; i < nump; i++) {
-    //sum += (uint)src[i].r + (uint)src[i].g + (uint)src[i].b;
+unsigned char psum;
+for(int i = 0; i < xsize*ysize*3; i+=3){
+  psum = src[i] + src[i+1] + src[i+2];
+  if(mean > psum)
+     src[i] = src[i+1] = src[i+2] = 0;
+  else
+    src[i] = src[i+1] = src[i+2] = 255;
   }
 
-  sum /= nump;
-
-  for(i = 0; i < nump; i++) {
-    //psum = (uint)src[i].r + (uint)src[i].g + (uint)src[i].b;
-    if(sum > psum) {
-      //src[i].r = src[i].g = src[i].b = 0;
-    }
-    else {
-      //src[i].r = src[i].g = src[i].b = 255;
-    }
-  }
 }

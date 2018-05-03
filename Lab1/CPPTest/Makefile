@@ -12,4 +12,4 @@ blurc: blurmain.cpp
 	${MPICXX} ${CXXFLAGS} -o blurc blurmain.cpp blurfilter.cpp
 
 thresc: thresmain.cpp
-	${MPICXX} ${CXXFLAGS} -o thresc thresmain.cpp thresfilter.cpp ppmio.cpp
+	${MPICXX} ${CXXFLAGS} -o thresc thresmain.cpp thresfilter.cpp
