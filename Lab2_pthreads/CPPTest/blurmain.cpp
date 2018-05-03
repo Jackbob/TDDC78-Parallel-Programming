@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <array>
 #include <iterator>
+#include <thread>
+#include <vector>
 
 #define MAX_X 1.33
 #define Pi 3.14159
@@ -20,14 +22,10 @@ int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data);
 void get_gauss_weights(int n, double* weights_out);
 
 int main(int argc, char *argv[]) {
+    unsigned int num_processor = std::thread::hardware_concurrency();
+    std::cout << "Number of processors: " <<  num_processor << std::endl;
+    std::vector<pthread_t> threads(num_processor);
 
-    MPI_Init(nullptr, nullptr);
-    int rank{}, world{}, root{0};
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world);
-
-    std::cout << "Rank " << rank << " out of " << world << "\n";
     int radius;
     int xsize, ysize, colmax;
     unsigned char* src;
@@ -38,131 +36,86 @@ int main(int argc, char *argv[]) {
     double w[MAX_RAD];
 
 
-    if(rank == root) {
+    src = new unsigned char[MAX_PIXELS * 3];
+    newsrc = new unsigned char[MAX_PIXELS * 3];
 
-        src = new unsigned char[MAX_PIXELS * 3];
-        newsrc = new unsigned char[MAX_PIXELS * 3];
-
-        /* Take care of the arguments */
-        if (argc != 4) {
-            fprintf(stderr, "Usage: %s radius infile outfile\n", argv[0]);
-            exit(1);
-        }
-
-        radius = atoi(argv[1]);
-        if ((radius > MAX_RAD) || (radius < 1)) {
-            fprintf(stderr, "Radius (%d) must be greater than zero and less then %d\n", radius, MAX_RAD);
-            exit(1);
-        }
-
-        /* read file */
-        if (read_ppm(argv[2], &xsize, &ysize, &colmax, src) != 0)
-            exit(1);
-
-        if (colmax > 255) {
-            fprintf(stderr, "Too large maximum color-component value\n");
-            exit(1);
-        }
-
-        printf("Has read the image, generating coefficients\n");
-
-        clock_gettime(CLOCK_REALTIME, &stime);
+    /* Take care of the arguments */
+    if (argc != 4) {
+        std::cerr << "Usage " << argv[0] << " radius infile outfile" << std::endl;
+        exit(1);
     }
+
+    radius = atoi(argv[1]);
+    if ((radius > MAX_RAD) || (radius < 1)) {
+        std::cerr << "Radius " << radius << " must be greater than zero and less then " << MAX_RAD << std::endl;
+        exit(1);
+    }
+
+    /* read file */
+    if (read_ppm(argv[2], &xsize, &ysize, &colmax, src) != 0)
+        exit(1);
+
+    if (colmax > 255) {
+        std::cerr << "Too large maximum color-component value" << std::endl;
+        exit(1);
+    }
+
+    std::cout << "Has read the image, generating coefficients\n";
+
+    clock_gettime(CLOCK_REALTIME, &stime);
 
     /* filter */
 
-    MPI_Bcast(&xsize, 1, MPI_INT, root, MPI_COMM_WORLD);
-    MPI_Bcast(&ysize, 1, MPI_INT, root, MPI_COMM_WORLD);
-    MPI_Bcast(&radius, 1, MPI_INT, root, MPI_COMM_WORLD);
-    MPI_Bcast(&w, 1, MPI_INT, root, MPI_COMM_WORLD);
-
     get_gauss_weights(radius, w);
 
-    int ysplit = ysize/world;
-    int rest = ysize%world;
-    int give = rest==0 ? 0 : 1;
-    int steal = world - 1 - rest;
-    int* sendcounts = new int[world];
-    int* displace = new int[world];
-    for(int i=0; i<world; i++) {
-        sendcounts[i] = (ysplit+give) * xsize * 3;
-        displace[i] = (ysplit+give+1) * xsize * 3 * i;
+    std::cout << "Calling filter\n";
+
+    int ysplit = ysize/num_processor;
+    int rest = ysize%num_processor;
+    std::vector<unsigned int> splitcounts(num_processor, ysplit);
+    splitcounts[num_processor-1] += rest*xsize*3;
+    std::copy(splitcounts.begin(), splitcounts.end(), std::ostream_iterator<unsigned int>(std::cout, " "));
+    std::cout << std::endl;
+
+    int from{0}, to{0};
+    struct blur_data data[num_processor];
+
+    for(int i = 0; i < num_processor; i++){
+        from = to;
+        to = to + splitcounts[i];
+        data[i].src = src;
+        data[i].from = from;
+        data[i].to = to;
+        data[i].xsize = xsize;
+        data[i].ysize = ysize;
+        data[i].radius = radius;
+        data[i].newsrc = newsrc;
+        data[i].w = w;
+        std::cout << "main() : Creating thread " << i << std::endl;
+        pthread_create(&threads[i], nullptr, blurfilter, (void*)&data[i]);
     }
 
-    if(rest != 0)
-        sendcounts[world-1] = (ysplit - steal) * xsize * 3;
-
-    auto dst = new unsigned char[sendcounts[rank]];
-
-    MPI_Scatterv(src, sendcounts, displace, MPI_UNSIGNED_CHAR, dst, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
-
-    auto overlap_top_recv = new unsigned char[radius*xsize*3];
-    auto overlap_bottom_recv = new unsigned char[radius*xsize*3];
-
-    int bot_from = ysplit*xsize*3 - radius*xsize*3;
-    int bot_to = ysplit*xsize*3;
-
-    int top_to = radius*xsize*3;
-    auto overlap_bottom_send = new unsigned char[radius*xsize*3];
-    auto overlap_top_send = new unsigned char[radius*xsize*3];
-
-    if(rank == root){
-      for(int i=0; i<xsize*radius*3; i++){
-        overlap_bottom_send[i] = dst[i + (sendcounts[rank] - xsize*radius*3)];
-      }
-
-        MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
-        MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-    else if(rank == world-1){
-        for(int i=0; i<xsize*radius*3; i++){
-          overlap_top_send[i] = dst[i];
-        }
-
-        MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
-    }
-    else{
-        for(int i=0; i<xsize*radius*3; i++){
-          overlap_top_send[i] = dst[i];
-          overlap_bottom_send[i] = dst[i + (sendcounts[rank] - xsize*radius*3)];
-        }
-
-        MPI_Recv(overlap_top_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
-        MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
+    void *status;
+    for(auto t : threads){
+        pthread_join(t, &status);
     }
 
-    printf("Calling filter\n");
 
-    blurfilter(xsize, sendcounts[rank]/(xsize*3), overlap_top_recv, overlap_bottom_recv, dst, radius, w);
+    /* write result */
+    std::cout << "Writing output file\n";
 
-    MPI_Gather(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
-    //MPI_Gatherv(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts, displace, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+    clock_gettime(CLOCK_REALTIME, &etime);
 
-    if(rank == root) {
-        /* write result */
-        printf("Writing output file\n");
+    std::cout << "Filtering took " << (etime.tv_sec - stime.tv_sec) +
+                                      1e-9 * (etime.tv_nsec - stime.tv_nsec) << " secs" << std::endl;
 
-        clock_gettime(CLOCK_REALTIME, &etime);
-        printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
-                                            1e-9 * (etime.tv_nsec - stime.tv_nsec));
 
-        if (write_ppm(argv[3], xsize, ysize, newsrc) != 0)
-            return 1;
-    }
-    if(root == rank){
-      delete[] src;
-      delete[] newsrc;
-    }
-    delete[] overlap_bottom_send;
-    delete[] overlap_top_send;
-    delete[] overlap_bottom_recv;
-    delete[] overlap_top_recv;
-    delete[] dst;
+    if (write_ppm(argv[3], xsize, ysize, newsrc) != 0)
+        return 1;
 
-    MPI_Finalize();
+    delete[] src;
+    delete[] newsrc;
+
     return (0);
 }
 

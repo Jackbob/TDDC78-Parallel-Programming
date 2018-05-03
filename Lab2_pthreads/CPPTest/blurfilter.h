@@ -8,11 +8,18 @@
 #ifndef _BLURFILTER_H_
 #define _BLURFILTER_H_
 
-/* NOTE: This structure must not be padded! */
-typedef struct _pixel {
-    unsigned char r,g,b;
-} pixel;
+struct blur_data{
+public:
+    unsigned char* src;
+    unsigned char* newsrc;
+    int from;
+    int to;
+    int xsize;
+    int ysize;
+    int radius;
+    double* w;
+};
 
-void blurfilter(int xsize, int ysize, unsigned char* overlap_top, unsigned char* overlap_bot, unsigned char* dst, int radius, const double w[]);
+void* blurfilter(void* blurargs);
 
 #endif

@@ -12,85 +12,40 @@
 #include <iostream>
 #include <cfloat>
 
-pixel* pix(pixel* image, const int xx, const int yy, const int xsize)
-{
-  int off = xsize*yy + xx;
 
-#ifdef DBG
-  if(off >= MAX_PIXELS) {
-    fprintf(stderr, "\n Terribly wrong: %d %d %d\n",xx,yy,xsize);
-  }
-#endif
-  return (image + off);
-}
-
-void blurfilter(const int xsize, const int ysize, unsigned char* overlap_top, unsigned char* overlap_bot, unsigned char *dst, const int radius, const double w[]) {
-
-    int rank{}, world{}, root{0};
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world);
+void* blurfilter(void* blurargs){
+    struct blur_data *data;
+    data = (struct blur_data*) blurargs;
 
     int x{}, y{};
     double wc{}, n{};
-    unsigned char* copy = new unsigned char[xsize*ysize*3];
-    for(int i=0; i<xsize*ysize*3; i++){
-      copy[i] = dst[i];
-        //if(rank == 0 && static_cast<double>(copy[i]) < DBL_EPSILON)
-          //std::cout << static_cast<double>(copy[i]) << std::endl;
-    }
 
-    for(int row = 0; row < ysize; row++) {
-        for(int c = 0; c < xsize; c++) {
+    for(int row = data->from; row < data->to; row++) {
+        for(int c = 0; c < data->xsize; c++) {
             double r = 0;
             double g = 0;
             double b = 0;
 
             n = 0;
-            for (x = -radius; x <= radius; x++) {
-                for (y = -radius; y <= radius; y++) {
+            for (x = -data->radius; x <= data->radius; x++) {
+                for (y = -data->radius; y <= data->radius; y++) {
 
-                    wc = w[std::max(abs(x), abs(y))];
-                    if(c+x >= 0 && c+x < xsize){
+                    wc = data->w[std::max(abs(x), abs(y))];
 
-                        if( row+y < 0  && rank != root){
-
-                            r += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 0]);
-                            g += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 1]);
-                            b += wc * static_cast<double>(overlap_top[xsize * 3*(radius+y) + (c+x)*3 + 2]);
-                            n += wc;
-
-                        }
-                        else if( row+y >= ysize && rank != world-1){
-
-                            r += wc * static_cast<double>(overlap_bot[xsize * 3*y + (c+x)*3 + 0]);
-                            g += wc * static_cast<double>(overlap_bot[xsize * 3*y + (c+x)*3 + 1]);
-                            b += wc * static_cast<double>(overlap_bot[xsize * 3*y + (c+x)*3 + 2]);
-                            n += wc;
-
-                        }
-                        else {
-                          /*if(static_cast<double>(copy[xsize * 3*(radius+y) + (c+x)*3 + 0]) == 0.0)
-                            std::cout << "GG" << std::endl;*/
-                            r += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 0]);
-                            g += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 1]);
-                            b += wc * static_cast<double>(copy[xsize*3 * (row+y) + (c+x)*3 + 2]);
-                            n += wc;
-
-                        }
+                    if(c+x >= 0 && c+x < data->xsize && (y+row) >= 0 && (y+row) < data->ysize){
+                        r += wc * static_cast<double>(data->src[data->xsize*3 * (row+y) + (c+x)*3 + 0]);
+                        g += wc * static_cast<double>(data->src[data->xsize*3 * (row+y) + (c+x)*3 + 1]);
+                        b += wc * static_cast<double>(data->src[data->xsize*3 * (row+y) + (c+x)*3 + 2]);
+                        n += wc;
                     }
-
                 }
             }
-            /*if(rank == 0){
-              std::cout << (r / n) << std::endl;
-            }*/
-            dst[xsize*row*3 + c*3 + 0] = (unsigned char)(r / n);
-            dst[xsize*row*3 + c*3 + 1] = (unsigned char)(g / n);
-            dst[xsize*row*3 + c*3 + 2] = (unsigned char)(b / n);
+
+            data->newsrc[data->xsize*row*3 + c*3 + 0] = (unsigned char)(r / n);
+            data->newsrc[data->xsize*row*3 + c*3 + 1] = (unsigned char)(g / n);
+            data->newsrc[data->xsize*row*3 + c*3 + 2] = (unsigned char)(b / n);
 
         }
     }
-    delete[] copy;
-
-
+    pthread_exit(nullptr);
 }
