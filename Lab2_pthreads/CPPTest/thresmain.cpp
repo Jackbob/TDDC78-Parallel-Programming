@@ -1,4 +1,3 @@
-#include <mpi.h>
 #include <iostream>
 #include "thresfilter.h"
 #include <cmath>
@@ -8,6 +7,9 @@
 #include <algorithm>
 #include <array>
 #include <iterator>
+#include <pthread.h>
+#include <thread>
+#include <vector>
 
 #define MAX_X 1.33
 #define Pi 3.14159
@@ -19,103 +21,76 @@ int read_ppm (const char * fname, int * xpix, int * ypix, int * max, unsigned ch
 int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data);
 
 int main(int argc, char *argv[]) {
-
-    MPI_Init(nullptr, nullptr);
-    int rank{}, world{}, root{0};
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world);
-
-    std::cout << "Rank " << rank << " out of " << world << "\n";
-    int radius;
+    unsigned int num_processor = std::thread::hardware_concurrency();
+    std::cout << num_processor << std::endl;
+    std::vector<pthread_t> threads{num_processor};
+    
     int xsize, ysize, colmax;
     unsigned char* src;
     unsigned char* newsrc;
 
     struct timespec stime{}, etime{};
 
-    if(rank == root) {
+    src = new unsigned char[MAX_PIXELS * 3];
+    newsrc = new unsigned char[MAX_PIXELS * 3];
 
-        src = new unsigned char[MAX_PIXELS * 3];
-        newsrc = new unsigned char[MAX_PIXELS * 3];
+    if (argc != 3) {
+      fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
+      exit(1);
+      }
 
-        if (argc != 3) {
-          fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
+
+      if(read_ppm (argv[1], &xsize, &ysize, &colmax, src) != 0)
           exit(1);
-          }
 
-
-          if(read_ppm (argv[1], &xsize, &ysize, &colmax, src) != 0)
-              exit(1);
-
-          if (colmax > 255) {
-          fprintf(stderr, "Too large maximum color-component value\n");
-          exit(1);
-        }
-
-        printf("Has read the image, generating coefficients\n");
-
-        clock_gettime(CLOCK_REALTIME, &stime);
+      if (colmax > 255) {
+      fprintf(stderr, "Too large maximum color-component value\n");
+      exit(1);
     }
 
+    printf("Has read the image, generating coefficients\n");
 
+    clock_gettime(CLOCK_REALTIME, &stime);
+    
 
-    MPI_Bcast(&xsize, 1, MPI_INT, root, MPI_COMM_WORLD);
-    MPI_Bcast(&ysize, 1, MPI_INT, root, MPI_COMM_WORLD);
-
-    int ysplit = ysize/world;
-    int rest = ysize%world;
+    int ysplit = ysize/num_processor;
+    int rest = ysize%num_processor;
     int give = rest==0 ? 0 : 1;
-    int steal = world - 1 - rest;
-    int* sendcounts = new int[world];
-    int* displace = new int[world];
-    for(int i=0; i<world; i++) {
+    int steal = num_processor - 1 - rest;
+    int* sendcounts = new int[num_processor];
+    for(int i=0; i<num_processor; i++) {
         sendcounts[i] = (ysplit+give) * xsize * 3;
-        displace[i] = (ysplit+give+1) * xsize * 3 * i;
     }
 
     if(rest != 0)
-        sendcounts[world-1] = (ysplit - steal) * xsize * 3;
-
-    auto dst = new unsigned char[sendcounts[rank]];
-
-    MPI_Scatterv(src, sendcounts, displace, MPI_UNSIGNED_CHAR, dst, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
+        sendcounts[num_processor-1] = (ysplit - steal) * xsize * 3;
 
 
     printf("Calling filter\n");
 
     unsigned int local_sum{0},sum{0};
+
     for(int i = 0; i < sendcounts[rank]; i++){
-      local_sum += dst[i];
+      local_sum += src[i];
     }
-    MPI_Allreduce(&local_sum, &sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     unsigned char mean = static_cast<unsigned char>(sum/(xsize*ysize*3));
-    //unsigned char mean = sum/(xsize*ysize);
 
-    thresfilter(xsize, sendcounts[rank]/(xsize*3), dst, mean);
+    thresfilter(xsize, sendcounts[rank]/(xsize*3), src, newsrc, mean);
+    
+    printf("Writing output file\n");
 
-    MPI_Gather(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
-    if(rank == root) {
+    clock_gettime(CLOCK_REALTIME, &etime);
+    printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
+                                        1e-9 * (etime.tv_nsec - stime.tv_nsec));
 
-        printf("Writing output file\n");
+    if (write_ppm(argv[2], xsize, ysize, newsrc) != 0)
+        return 1;
 
-        clock_gettime(CLOCK_REALTIME, &etime);
-        printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
-                                            1e-9 * (etime.tv_nsec - stime.tv_nsec));
+    
+    delete[] src;
+    delete[] newsrc;
 
-        if (write_ppm(argv[2], xsize, ysize, newsrc) != 0)
-            return 1;
-    }
-
-
-    if(root == rank){
-      delete[] src;
-      delete[] newsrc;
-    }
-    delete[] dst;
-
-    MPI_Finalize();
     return (0);
 }
 

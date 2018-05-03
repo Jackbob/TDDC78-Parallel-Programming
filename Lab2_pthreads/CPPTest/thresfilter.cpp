@@ -1,6 +1,6 @@
 #include "thresfilter.h"
 
-void thresfilter(const int xsize, const int ysize, unsigned char* src, unsigned char mean){
+void thresfilter(const int xsize, const int ysize, unsigned char* src,unsigned char* newsrc unsigned char mean){
 
 unsigned char psum;
 for(int i = 0; i < xsize*ysize*3; i+=3){

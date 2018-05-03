@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(Lab1)
+project(Lab2)
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
@@ -18,10 +18,6 @@ add_executable(blur
 
 add_executable(thresh
         thresmain.cpp
-        ppm.cpp
-        ppm.h
-        ppmio.cpp
-        ppmio.h
         thresfilter.cpp
         thresfilter.h
         )
