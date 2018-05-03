@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     newsrc = new unsigned char[MAX_PIXELS * 3];
 
     if (argc != 3) {
-      fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
+      std::cerr << "Usage: %s infile outfile\n" << argv[0] << std::endl;
       exit(1);
       }
 
@@ -44,50 +44,41 @@ int main(int argc, char *argv[]) {
           exit(1);
 
       if (colmax > 255) {
-      fprintf(stderr, "Too large maximum color-component value\n");
-      exit(1);
+          std::cerr << "Too large maximum color-component value\n" << std::endl;
     }
 
-    printf("Has read the image, generating coefficients\n");
+    std::cout << "Has read the image, generating coefficients <<" std::endl;
 
     clock_gettime(CLOCK_REALTIME, &stime);
-    
 
     int ysplit = ysize/num_processor;
     int rest = ysize%num_processor;
-    int give = rest==0 ? 0 : 1;
-    int steal = num_processor - 1 - rest;
-    int* sendcounts = new int[num_processor];
-    for(int i=0; i<num_processor; i++) {
-        sendcounts[i] = (ysplit+give) * xsize * 3;
-    }
+    std::vector<unsigned int> splitcounts(num_processor, ysplit);
+    splitcounts[num_processor-1] += rest;
+    std::copy(splitcounts.begin(), splitcounts.end(), std::ostream_iterator<unsigned int>(std::cout, " "));
 
-    if(rest != 0)
-        sendcounts[num_processor-1] = (ysplit - steal) * xsize * 3;
+    std::cout << "Calling filter" << std::endl;
 
+    /*unsigned int local_sum{0},sum{0};
 
-    printf("Calling filter\n");
-
-    unsigned int local_sum{0},sum{0};
-
-    for(int i = 0; i < sendcounts[rank]; i++){
+    for(int i = 0; i < splitcounts; i++){
       local_sum += src[i];
-    }
+    }*/
 
-    unsigned char mean = static_cast<unsigned char>(sum/(xsize*ysize*3));
+    //unsigned char mean = static_cast<unsigned char>(sum/(xsize*ysize*3));
 
-    thresfilter(xsize, sendcounts[rank]/(xsize*3), src, newsrc, mean);
-    
-    printf("Writing output file\n");
+    //thresfilter(xsize, sendcounts[rank]/(xsize*3), src, newsrc, mean);
+
+    std::cout << "Calling filter" << std::endl;
 
     clock_gettime(CLOCK_REALTIME, &etime);
-    printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
-                                        1e-9 * (etime.tv_nsec - stime.tv_nsec));
+
+    std::cout << "Filtering took" << (etime.tv_sec - stime.tv_sec) +
+                                     1e-9 * (etime.tv_nsec - stime.tv_nsec) << " secs" << std::endl;
 
     if (write_ppm(argv[2], xsize, ysize, newsrc) != 0)
         return 1;
 
-    
     delete[] src;
     delete[] newsrc;
 
