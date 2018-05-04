@@ -152,7 +152,8 @@ int main(int argc, char *argv[]) {
             return 1;
     }
     t2 = MPI_Wtime();
-    std::cout << "MPI_Wtime for rank " << rank << " " << t2-t1;
+    double result = t2-t1;
+    printf("MPI_Wtime for rank %d took %g\n", rank, result);
     fflush(stdout);
     if(root == rank){
       delete[] src;
