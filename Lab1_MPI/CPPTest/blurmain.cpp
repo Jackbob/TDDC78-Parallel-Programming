@@ -32,11 +32,13 @@ int main(int argc, char *argv[]) {
     int xsize, ysize, colmax;
     unsigned char* src;
     unsigned char* newsrc;
+    double t1{0.0}, t2{0.0};
 
 #define MAX_RAD 1000
     struct timespec stime{}, etime{};
     double w[MAX_RAD];
 
+    t1 = MPI_Wtime();
 
     if(rank == root) {
 
@@ -66,7 +68,7 @@ int main(int argc, char *argv[]) {
 
         printf("Has read the image, generating coefficients\n");
 
-        clock_gettime(CLOCK_REALTIME, &stime);
+        //clock_gettime(CLOCK_REALTIME, &stime);
     }
 
     /* filter */
@@ -143,14 +145,15 @@ int main(int argc, char *argv[]) {
     if(rank == root) {
         /* write result */
         printf("Writing output file\n");
-
-        clock_gettime(CLOCK_REALTIME, &etime);
-        printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
-                                            1e-9 * (etime.tv_nsec - stime.tv_nsec));
-
+        //clock_gettime(CLOCK_REALTIME, &etime);
+        //printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
+                                            //1e-9 * (etime.tv_nsec - stime.tv_nsec));
         if (write_ppm(argv[3], xsize, ysize, newsrc) != 0)
             return 1;
     }
+    t2 = MPI_Wtime();
+    printf("MPI_Wtime measured a 1 second sleep to be: %1.2f\n", t2-t1);fflush(stdout);
+
     if(root == rank){
       delete[] src;
       delete[] newsrc;
