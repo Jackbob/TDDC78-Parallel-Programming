@@ -1,4 +1,4 @@
-#!/bin/bash
+ #!/bin/bash
 set -e
 module load buildenv-intel/2015-1
 make -f Makefile
