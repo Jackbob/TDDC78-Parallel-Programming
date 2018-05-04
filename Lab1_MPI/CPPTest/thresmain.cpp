@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
         //clock_gettime(CLOCK_REALTIME, &etime);
         //printf("Filtering took: %g secs\n", (etime.tv_sec - stime.tv_sec) +
-                                            1e-9 * (etime.tv_nsec - stime.tv_nsec));
+                                            //1e-9 * (etime.tv_nsec - stime.tv_nsec));
         if (write_ppm(argv[2], xsize, ysize, newsrc) != 0)
             return 1;
     }
