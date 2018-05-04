@@ -152,8 +152,8 @@ int main(int argc, char *argv[]) {
             return 1;
     }
     t2 = MPI_Wtime();
-    printf("MPI_Wtime measured a 1 second sleep to be: %1.2f\n", t2-t1);fflush(stdout);
-
+    std::cout << "MPI_Wtime for rank " << rank << " " << t2-t1;
+    fflush(stdout);
     if(root == rank){
       delete[] src;
       delete[] newsrc;
