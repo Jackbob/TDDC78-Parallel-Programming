@@ -3,20 +3,23 @@
 //
 #include <ctime>
 #include <iostream>
+#include <vector>
 #include <omp.h>
 int main(int argc, char* argv[]){
-    int target_thread_num = 4;
-    omp_set_num_threads(target_thread_num);
-    unsigned long times[target_thread_num];
+    /*Variable initialization*/
+    int n{1000}, maxiter{1000}, i{0}, j{0}, k{0};
+    double tol{1.0e-3}, error{0.0}, x{0.0}, t1{0.0}, t2{0.0};
+    std::vector<std::vector<double>> T(n+1,std::vector<double>(n+1));
+    std::vector<double> tmp1(n), tmp2(n);
+    std::string str;
 
-// Initialize all the times
-#pragma omp parallel
-    {
-        int thread_id = omp_get_thread_num();
-        times[thread_id] = start_time();
-
-        std::cout << "Thread number: " << omp_get_thread_num() << std::endl;
-
-        times[thread_id] = end_time();
+    /*Set boundaries and initial values for the unknowns*/
+    for(int i = 0; i < n+1; i++) {
+        T[i][0] = 1.0;
+        T[i][n] = 1.0;
+        T[n][i] = 2.0;
     }
+    T[n][0] = 2.0;
+
+    return 0;
 }
