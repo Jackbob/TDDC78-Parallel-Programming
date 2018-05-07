@@ -8,6 +8,8 @@
 #include <omp.h>
 #include <algorithm>
 #include <cmath>
+#include <iterator>
+
 int main(int argc, char* argv[]){
     /*Variable initialization*/
     int n{5}, maxiter{1000}, i{0}, j{1}, k{1};
