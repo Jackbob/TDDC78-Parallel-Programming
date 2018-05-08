@@ -29,10 +29,10 @@ int main(int argc, char* argv[]){
     t0 = std::clock();
 
     /* Fork a team of threads giving them their own copies of variables */
-    #pragma omp parallel private(tmp1, tmp2, vec1, vec2, vec3, maxiter, k)
-    {
+    //#pragma omp parallel private(tmp1, tmp2, vec1, vec2, vec3, maxiter, k)
+    //{
         
-        #pragma omp parallel shared(T, n) {
+       // #pragma omp parallel shared(T, n) {
         /*Set boundaries and initial values for the unknowns*/
 
 
@@ -41,7 +41,7 @@ int main(int argc, char* argv[]){
                 tmp1.assign(T[0].begin()+1, T[0].end()-1);
                 error = 0.0;
 
-                #pragma omp
+                //#pragma omp
                 for(int j = 1; j <= n; j++){
                     tmp2.assign(T[j].begin()+1, T[j].end()-1);
 
@@ -70,9 +70,9 @@ int main(int argc, char* argv[]){
                     break;
                 }
             }
-        }
+        //}
 
-    }  /* All threads join master thread and disband */
+    //}  /* All threads join master thread and disband */
 
     t1 = std::clock();
     double time_elapsed_ms = 1000.0 * (t1-t0) / CLOCKS_PER_SEC;
