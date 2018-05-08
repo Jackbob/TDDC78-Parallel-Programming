@@ -107,12 +107,14 @@ int main(int argc, char *argv[]) {
     int top_to = radius*xsize*3;
     auto overlap_bottom_send = new unsigned char[radius*xsize*3];
     auto overlap_top_send = new unsigned char[radius*xsize*3];
+	
 
-    if(rank == root){
-      for(int i=0; i<xsize*radius*3; i++){
+   if(world != 1){	
+    if(rank == root){      
+	for(int i=0; i<xsize*radius*3; i++){
         overlap_bottom_send[i] = dst[i + (sendcounts[rank] - xsize*radius*3)];
-      }
-
+      	}
+	
         MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
         MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
@@ -134,7 +136,8 @@ int main(int argc, char *argv[]) {
         MPI_Send(overlap_bottom_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD);
         MPI_Recv(overlap_bottom_recv, radius*xsize*3, MPI_UNSIGNED_CHAR, rank+1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Send(overlap_top_send, radius*xsize*3, MPI_UNSIGNED_CHAR, rank-1, 0, MPI_COMM_WORLD);
-    }
+     }
+   }
 
     printf("Calling filter\n");
 
