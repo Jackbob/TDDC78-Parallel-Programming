@@ -53,13 +53,13 @@ int main(int argc, char* argv[]){
                     std::transform(vec1.begin(), vec1.end(), vec3.begin(), vec1.begin(), std::plus<double>());
                     std::transform(vec1.begin(), vec1.end(), tmp1.begin(), vec1.begin(), std::plus<double>());
 
-                    std::for_each(vec1.begin(), vec1.end(), [](auto& val){
+                    std::for_each(vec1.begin(), vec1.end(), [](double& val){
                         val/=4.0;
                     });
 
                     std::copy(vec1.begin(), vec1.end(), T[j].begin()+1);
                     std::vector<double> temp(n);
-                    std::transform(tmp2.begin(), tmp2.end(), T[j].begin()+1, temp.begin(), [&temp](auto a, auto b){
+                    std::transform(tmp2.begin(), tmp2.end(), T[j].begin()+1, temp.begin(), [&temp](double a, double b){
                         return std::abs(a-b);
                     });
 
