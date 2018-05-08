@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <thread>
 #include <vector>
+#include <sstream>
 
 #define MAX_X 1.33
 #define Pi 3.14159
@@ -31,7 +32,12 @@ public:
 };
 
 int main(int argc, char *argv[]) {
-    unsigned int num_processor = std::thread::hardware_concurrency();
+    std::istringstream ss(argv[3]);
+    int x;
+    if (!(ss >> x))
+        std::cerr << "Invalid number " << argv[3] << '\n';
+
+    unsigned int num_processor = static_cast<unsigned int>(x);
     std::cout << "Number of processors: " <<  num_processor << std::endl;
     std::vector<pthread_t> threads(num_processor);
     
@@ -43,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     src = new unsigned char[MAX_PIXELS * 3];
 
-    if (argc != 3) {
+    if (argc != 4) {
       std::cerr << "Usage: %s infile outfile\n" << argv[0] << std::endl;
       exit(1);
       }
@@ -91,7 +97,6 @@ int main(int argc, char *argv[]) {
     }
 
     unsigned int thres_val = avg/(xsize*ysize*3);
-    std::cout << thres_val << std::endl;
 
     from = 0;
     to = 0;

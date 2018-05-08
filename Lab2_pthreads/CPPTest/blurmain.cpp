@@ -10,6 +10,7 @@
 #include <iterator>
 #include <thread>
 #include <vector>
+#include <sstream>
 
 #define MAX_X 1.33
 #define Pi 3.14159
@@ -22,7 +23,12 @@ int write_ppm (const char * fname, int xpix, int ypix, unsigned char * data);
 void get_gauss_weights(int n, double* weights_out);
 
 int main(int argc, char *argv[]) {
-    unsigned int num_processor = std::thread::hardware_concurrency();
+    std::istringstream ss(argv[4]);
+    int x;
+    if (!(ss >> x))
+        std::cerr << "Invalid number " << argv[4] << '\n';
+
+    unsigned int num_processor = static_cast<unsigned int>(x);
     std::cout << "Number of processors: " <<  num_processor << std::endl;
     std::vector<pthread_t> threads(num_processor);
 
@@ -40,7 +46,7 @@ int main(int argc, char *argv[]) {
     newsrc = new unsigned char[MAX_PIXELS * 3];
 
     /* Take care of the arguments */
-    if (argc != 4) {
+    if (argc != 5) {
         std::cerr << "Usage " << argv[0] << " radius infile outfile" << std::endl;
         exit(1);
     }
