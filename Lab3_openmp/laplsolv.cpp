@@ -9,15 +9,16 @@
 #include <algorithm>
 #include <cmath>
 #include <iterator>
+#include <cfloat>
+#include <chrono>
 
 int main(int argc, char* argv[]){
     /*Variable initialization*/
-    int n{300}, maxiter{1000}, k{1}, j;
-    double tol{1.0e-3}, error{0.0}, x{0.0};
+    int n{300}, maxiter{1000}, k{1}, j, t, nt;
+    double tol{1.0e-3}, error{DBL_MAX}, x{0.0};
     std::vector<std::vector<double>> T(n+2,std::vector<double>(n+2));
     std::vector<double> tmp1(n), tmp2(n), vec1(n), vec2(n), vec3(n);
     std::string str;
-    std::clock_t t0, t1;
 
     for(int i = 0; i < n+2; i++) {
         T[0][i] = 1.0;
@@ -26,23 +27,20 @@ int main(int argc, char* argv[]){
     }
     T[0][n+1] = 2.0;
 
-    t0 = std::clock();
+    auto t_start = std::chrono::high_resolution_clock::now();
 
-    for(k = 1; k < maxiter;k++){
+    for(k = 1; k < maxiter && error > tol;k++){
 
       /* Fork a team of threads giving them their own copies of variables */
-      #pragma omp parallel private(tmp1, tmp2, vec1, vec2, vec3, j) shared(T, n, error)
+      #pragma omp parallel private(tmp1, tmp2, vec1, vec2, vec3, j) shared(k, T, n, error)
       {
           /*Set boundaries and initial values for the unknowns*/
           //Heat conduction
-          /* Obtain thread number */
-          //int t = omp_get_thread_num();
-          //int nt = omp_get_num_threads();
 
           tmp1.assign(T[0].begin()+1, T[0].end()-1);
           error = 0.0;
 
-          #pragma omp for schedule(dynamic, 5)
+          #pragma omp for schedule(static)
           for(j = 1; j <= n; j++){
             tmp2.assign(T[j].begin()+1, T[j].end()-1);
 
@@ -63,28 +61,19 @@ int main(int argc, char* argv[]){
             std::transform(tmp2.begin(), tmp2.end(), T[j].begin()+1, temp.begin(), [&temp](double a, double b){
               return std::abs(a-b);
             });
-
             error = std::max(error, *std::max_element(temp.begin(), temp.end()));
+            //std::cout << error << "\n";
             tmp1.assign(tmp2.begin(), tmp2.end());
           }
-          if(error < tol){
-            //std::cout << k;
-            //break;
-          }
 
-      }  /* Private end, All threads join master thread and disband */
+      }  /* Parallel end, All threads join master thread and disband */
 
     }
 
-    t1 = std::clock();
-    double time_elapsed_ms = 1000.0 * (t1-t0) / CLOCKS_PER_SEC;
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double time_elapsed_ms = std::chrono::duration<double, std::milli>(t_end-t_start).count();
     printf("Number of iterations: %d \n", k);
     printf("CPU time used: %g ms \n", time_elapsed_ms);
-
-    //for(int i=0; i<T.size() ; i++){
-      //std::copy(T[i].begin(), T[i].end(), std::ostream_iterator<double>(std::cout, " "));
-      //std::cout << "\n";
-    //}
 
     return 0;
 }
