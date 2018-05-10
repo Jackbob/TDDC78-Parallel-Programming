@@ -11,10 +11,11 @@
 #include <iterator>
 #include <cfloat>
 #include <chrono>
+#include <numeric>
 
 int main(int argc, char* argv[]){
     /*Variable initialization*/
-    int n{2000}, maxiter{1000}, k{1}, j, t, nt;
+    int n{600}, maxiter{1000}, k{1}, j, t, nt;
     double tol{1.0e-3}, error{DBL_MAX}, x{0.0};
     std::vector<std::vector<double>> T(n+2,std::vector<double>(n+2));
     std::vector<double> tmp1(n), tmp2(n), vec1(n), vec2(n), vec3(n);
@@ -76,6 +77,13 @@ int main(int argc, char* argv[]){
     double time_elapsed_s = t_end-t_start;
     printf("Number of iterations: %d \n", k);
     printf("CPU time used: %g ms \n", time_elapsed_s);
+
+    double avg{0.0};
+
+    for(auto r : T)
+        avg = std::accumulate(r.begin(), r.end(), avg);
+
+    printf("Average temp: %g C \n", avg/(n*n));
 
     return 0;
 }
