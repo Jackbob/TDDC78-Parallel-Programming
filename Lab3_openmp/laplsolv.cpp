@@ -27,8 +27,8 @@ int main(int argc, char* argv[]){
     }
     T[0][n+1] = 2.0;
 
-    auto t_start = std::chrono::high_resolution_clock::now();
-
+    //auto t_start = std::chrono::high_resolution_clock::now();
+    double t_start = omp_get_wtime();
     for(k = 1; k < maxiter && error > tol;k++){
 
       /* Fork a team of threads giving them their own copies of variables */
@@ -70,10 +70,12 @@ int main(int argc, char* argv[]){
 
     }
 
-    auto t_end = std::chrono::high_resolution_clock::now();
-    double time_elapsed_ms = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+    //auto t_end = std::chrono::high_resolution_clock::now();
+    double t_end = omp_get_wtime();
+    //double time_elapsed_ms = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+    double time_elapsed_s = t_end-t_start;
     printf("Number of iterations: %d \n", k);
-    printf("CPU time used: %g ms \n", time_elapsed_ms);
+    printf("CPU time used: %g ms \n", time_elapsed_s);
 
     return 0;
 }
