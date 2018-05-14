@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     std::vector<unsigned int> splitcounts(num_processor, ysplit);
     splitcounts[num_processor-1] += rest*xsize*3;
     std::copy(splitcounts.begin(), splitcounts.end(), std::ostream_iterator<unsigned int>(std::cout, " "));
-    std::cout << std::endl;
+    std::cout << std::endl << rest << "\n";
 
     int from{0}, to{0};
     struct blur_data data[num_processor];
