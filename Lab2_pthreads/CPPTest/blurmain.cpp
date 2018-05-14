@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
     int ysplit = ysize/num_processor;
     int rest = ysize%num_processor;
     std::vector<unsigned int> splitcounts(num_processor, ysplit);
-    splitcounts[num_processor-1] += rest*xsize*3;
+    splitcounts[num_processor-1] += rest;
     std::copy(splitcounts.begin(), splitcounts.end(), std::ostream_iterator<unsigned int>(std::cout, " "));
     std::cout << std::endl << rest << "\n";
 
