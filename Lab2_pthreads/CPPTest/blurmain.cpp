@@ -1,4 +1,3 @@
-#include <mpi.h>
 #include <iostream>
 #include "blurfilter.h"
 #include <cmath>
