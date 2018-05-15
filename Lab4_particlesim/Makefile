@@ -1,7 +1,8 @@
+CC = g++
+CXXFLAGS = -std=c++11
 
-
-sequential:main_sequential.c  physics.c
-	gcc -std=c99 -g -o $@ $^ -lrt -lm
+example: main_sequential.cpp
+	$(CC) $(CXXFLAGS) -o sequential main_sequential.cpp physics.cpp
 
 allclean:
 	-rm *.o sequential
