@@ -16,9 +16,9 @@
 int main(int argc, char* argv[]){
     /*Variable initialization*/
     int n{500}, maxiter{3000}, k{1}, j, t, nt;
-    double tol{0.5e-3}, error{DBL_MAX}, x{0.0};
+    double tol{1.0e-3}, error{DBL_MAX}, x{0.0};
     std::vector<std::vector<double>> T(n+2,std::vector<double>(n+2));
-    std::vector<double> tmp1(n), tmp2(n), vec1(n), vec2(n), vec3(n);
+    std::vector<double> tmp1, tmp2, vec1, vec2, vec3;
     std::string str;
     std::vector<double> temp;
 
@@ -46,6 +46,12 @@ int main(int argc, char* argv[]){
 #pragma omp parallel private(tmp1, tmp2, vec1, vec2, vec3, j, temp) shared(k, T, n, error)
         {
 
+            tmp1.resize(n);
+            temp.resize(n);
+            tmp2.resize(n);
+            vec1.resize(n);
+            vec2.resize(n);
+            vec3.resize(n);
             tmp1.assign(T[0].begin()+1, T[0].end()-1);
 
 #pragma omp for schedule(static)
@@ -65,7 +71,6 @@ int main(int argc, char* argv[]){
                 });
 
                 std::copy(vec1.begin(), vec1.end(), T[j].begin()+1);
-                temp.resize(n);
                 std::transform(tmp2.begin(), tmp2.end(), T[j].begin()+1, temp.begin(), [&temp](double a, double b){
                     return std::abs(a-b);
                 });
