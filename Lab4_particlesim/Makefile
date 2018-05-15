@@ -1,8 +1,8 @@
-CC = g++
 CXXFLAGS = -std=c++11
+MPICXX=mpicxx
 
 example: main_sequential.cpp
-	$(CC) $(CXXFLAGS) -o sequential main_sequential.cpp physics.cpp
+	${MPICXX} $(CXXFLAGS) -o sequential main_sequential.cpp physics.cpp
 
 allclean:
 	-rm *.o sequential

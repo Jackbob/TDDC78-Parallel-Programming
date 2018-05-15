@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <iostream>
 #include <vector>
-
+#include <mpi.h>
 #include "coordinate.h"
 #include "definitions.h"
 #include "physics.h"
@@ -24,10 +24,12 @@ void init_collisions(std::vector<bool> collisions, unsigned int max){
 
 
 int main(int argc, char** argv){
-
 	unsigned int time_stamp = 0, time_max;
 	float pressure = 0;
-
+	int rank{}, world{}, root{0};
+	std::vector<pcord_t> particles;
+    std::vector<bool> collisions;
+    cord_t wall;
 
 	// parse arguments
 	if(argc != 2) {
@@ -39,19 +41,28 @@ int main(int argc, char** argv){
 	time_max = atoi(argv[1]);
 
 
-	/* Initialize */
-	// 1. set the walls
-	cord_t wall;
-	wall.y0 = wall.x0 = 0;
-	wall.x1 = BOX_HORIZ_SIZE;
-	wall.y1 = BOX_VERT_SIZE;
+    MPI_Init(nullptr,nullptr);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world);
+
+    std::cout << "Rank " << rank << " out of " << world << "\n";
+
+    //Initializes the wall and particles on the root/master processor.
+    if(rank == root){
+        /* Initialize */
+        // 1. set the walls
+        wall.y0 = wall.x0 = 0;
+        wall.x1 = BOX_HORIZ_SIZE;
+        wall.y1 = BOX_VERT_SIZE;
+
+        // 2. allocate particle buffer and initialize the particles
+        particles = std::vector<pcord_t>(INIT_NO_PARTICLES*sizeof(pcord_t));
+        collisions = std::vector<bool>(INIT_NO_PARTICLES*sizeof(bool));
+    }
 
 
-	// 2. allocate particle bufer and initialize the particles
-    std::vector<pcord_t> particles (INIT_NO_PARTICLES*sizeof(pcord_t));
-    std::vector<bool> collisions (INIT_NO_PARTICLES*sizeof(bool));
 
-	srand( time(NULL) + 1234 );
+	srand( time(nullptr) + 1234 );
 
 	float r, a;
 	for(int i=0; i<INIT_NO_PARTICLES; i++){
@@ -104,7 +115,7 @@ int main(int argc, char** argv){
 	}
 
 	printf("Average pressure = %f\n", pressure / (WALL_LENGTH*time_max));
-
+    MPI_Finalize();
 	return 0;
 
 }
