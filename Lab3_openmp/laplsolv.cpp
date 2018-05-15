@@ -15,11 +15,12 @@
 
 int main(int argc, char* argv[]){
     /*Variable initialization*/
-    int n{1000}, maxiter{1000}, k{1}, j, t, nt;
-    double tol{1.0e-3}, error{DBL_MAX}, x{0.0};
+    int n{500}, maxiter{3000}, k{1}, j, t, nt;
+    double tol{0.5e-3}, error{DBL_MAX}, x{0.0};
     std::vector<std::vector<double>> T(n+2,std::vector<double>(n+2));
     std::vector<double> tmp1(n), tmp2(n), vec1(n), vec2(n), vec3(n);
     std::string str;
+    std::vector<double> temp;
 
     for(int i = 0; i < n+2; i++) {
         T[0][i] = 1.0;
@@ -33,18 +34,21 @@ int main(int argc, char* argv[]){
 
     //auto t_start = std::chrono::high_resolution_clock::now();
     double t_start = omp_get_wtime();
+
+
     for(k = 1; k < maxiter && error > tol;k++){
 
+        error = 0.0;
+        /*Set boundaries and initial values for the unknowns*/
+        //Heat conduction
+
         /* Fork a team of threads giving them their own copies of variables */
-#pragma omp parallel private(tmp1, tmp2, vec1, vec2, vec3, j) shared(k, T, n, error)
+#pragma omp parallel private(tmp1, tmp2, vec1, vec2, vec3, j, temp) shared(k, T, n, error)
         {
-            /*Set boundaries and initial values for the unknowns*/
-            //Heat conduction
 
             tmp1.assign(T[0].begin()+1, T[0].end()-1);
-            error = 0.0;
 
-#pragma omp for schedule(static, 50)
+#pragma omp for schedule(static)
             for(j = 1; j <= n; j++){
                 tmp2.assign(T[j].begin()+1, T[j].end()-1);
 
@@ -61,7 +65,7 @@ int main(int argc, char* argv[]){
                 });
 
                 std::copy(vec1.begin(), vec1.end(), T[j].begin()+1);
-                std::vector<double> temp(n);
+                temp.resize(n);
                 std::transform(tmp2.begin(), tmp2.end(), T[j].begin()+1, temp.begin(), [&temp](double a, double b){
                     return std::abs(a-b);
                 });
@@ -72,11 +76,12 @@ int main(int argc, char* argv[]){
 
                 //std::cout << error << "\n";
                 tmp1.assign(tmp2.begin(), tmp2.end());
-            }
 
-        }  /* Parallel end, All threads join master thread and disband */
+            } // Inner for end
 
-    }
+        } /* Parallel end, All threads join master thread and disband */
+
+    } // Outer for end
 
     //auto t_end = std::chrono::high_resolution_clock::now();
     double t_end = omp_get_wtime();
@@ -87,10 +92,15 @@ int main(int argc, char* argv[]){
 
     double avg{0.0};
 
-    for(auto r : T)
+    for(auto r : T) {
         avg = std::accumulate(r.begin(), r.end(), avg);
+        //std::copy(r.begin(), r.end(), std::ostream_iterator<double>(std::cout, " "));
+        //std::cout << "\n";
+    }
 
-    printf("Average temp: %g C \n", avg/(n*n));
+    printf("Average temp: %g C \nError: %g \n", avg/(n*n), error);
+
+
 
     return 0;
 }
