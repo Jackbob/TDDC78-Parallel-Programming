@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdbool.h>
-
+#include <iostream>
+#include <vector>
 
 #include "coordinate.h"
 #include "definitions.h"
@@ -16,14 +17,13 @@ float rand1(){
 	return (float)( rand()/(float) RAND_MAX );
 }
 
-void init_collisions(bool *collisions, unsigned int max){
+void init_collisions(std::vector<bool> collisions, unsigned int max){
 	for(unsigned int i=0;i<max;++i)
 		collisions[i]=0;
 }
 
 
 int main(int argc, char** argv){
-
 
 	unsigned int time_stamp = 0, time_max;
 	float pressure = 0;
@@ -48,20 +48,21 @@ int main(int argc, char** argv){
 
 
 	// 2. allocate particle bufer and initialize the particles
-	pcord_t *particles = (pcord_t*) malloc(INIT_NO_PARTICLES*sizeof(pcord_t));
-	bool *collisions=(bool *)malloc(INIT_NO_PARTICLES*sizeof(bool) );
+    std::vector<pcord_t> particles (INIT_NO_PARTICLES*sizeof(pcord_t));
+    std::vector<bool> collisions (INIT_NO_PARTICLES*sizeof(bool));
 
 	srand( time(NULL) + 1234 );
 
 	float r, a;
 	for(int i=0; i<INIT_NO_PARTICLES; i++){
 		// initialize random position
-		particles[i].x = wall.x0 + rand1()*BOX_HORIZ_SIZE;
-		particles[i].y = wall.y0 + rand1()*BOX_VERT_SIZE;
+		particles[i].x = static_cast<float>(wall.x0 + rand1()*BOX_HORIZ_SIZE);
+		particles[i].y = static_cast<float>(wall.y0 + rand1()*BOX_VERT_SIZE);
 
 		// initialize random velocity
 		r = rand1()*MAX_INITIAL_VELOCITY;
-		a = rand1()*2*PI;
+		if(r < 50) r = 49;
+		a = static_cast<float>(rand1()*2*PI);
 		particles[i].vx = r*cos(a);
 		particles[i].vy = r*sin(a);
 	}
@@ -102,11 +103,7 @@ int main(int argc, char** argv){
 
 	}
 
-
 	printf("Average pressure = %f\n", pressure / (WALL_LENGTH*time_max));
-
-	free(particles);
-	free(collisions);
 
 	return 0;
 
