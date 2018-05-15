@@ -15,7 +15,7 @@
 
 int main(int argc, char* argv[]){
     /*Variable initialization*/
-    int n{500}, maxiter{3000}, k{1}, j, t, nt;
+    int n{1000}, maxiter{3000}, k{1}, j, t, nt;
     double tol{1.0e-3}, error{DBL_MAX}, x{0.0};
     std::vector<std::vector<double>> T(n+2,std::vector<double>(n+2));
     std::vector<double> tmp1, tmp2, vec1, vec2, vec3;
