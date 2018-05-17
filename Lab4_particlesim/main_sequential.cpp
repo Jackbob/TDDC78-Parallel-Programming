@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <mpi.h>
+#include <algorithm>
 #include "coordinate.h"
 #include "definitions.h"
 #include "physics.h"
@@ -21,9 +22,19 @@ void init_collisions(std::vector<bool> collisions, unsigned int max){
 		collisions[i]= false;
 }
 
-void calculateRowCol(int& row, int& col, int nProc){
-	row = (int)std::ceil(std::sqrt(nProc));
-	col = (int)std::floor(std::sqrt(nProc));
+int calcRowRank(float y){
+	int n_proc;
+	MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
+	float rowSplit = (float)BOX_VERT_SIZE / n_proc;
+	return (int)(y/rowSplit);
+}
+
+bool boundaryCheck(Particle &p, cord_t wall){
+
+	if((p.y < wall.y0 || p.y > wall.y1) && (p.y > 0 && p.y < BOX_VERT_SIZE) )
+		return true;
+	else
+		return false;
 }
 
 
@@ -31,9 +42,10 @@ int main(int argc, char** argv){
 	/* Define variables */
 	unsigned int time_stamp = 0, time_max;
 	float pressure = 0;
-	int rank{}, world{}, root{0}, gridcol, gridrow;
-	int dims[2], period[2], coord[2];
+	int rank{}, world{}, root{0};
 	std::vector<Particle> Particles;
+	std::vector<Particle> sendParticlesUp;
+	std::vector<Particle> sendParticlesDown;
 	std::vector<bool> collisions;
 	cord_t wall;
 
@@ -54,15 +66,6 @@ int main(int argc, char** argv){
 	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &MPI_Particle);
 	MPI_Type_commit(&MPI_Particle);
 
-	calculateRowCol(gridrow, gridcol, world);
-	std::cout << gridrow << std::endl;
-	std::cout << gridcol << std::endl;
-	dims[0] = gridrow;
-	dims[1] = gridcol;
-	period[0] = period[1] = 0;
-	MPI_Dims_create(world, 2, dims); //Creates a division of processors in 2-D cartesian grid.
-	MPI_Cart_create(MPI_COMM_WORLD, 2, dims, period, 2  ,&grid_comm);
-
 
 	// parse arguments
 	if(argc != 2) {
@@ -74,20 +77,20 @@ int main(int argc, char** argv){
 	time_max = atoi(argv[1]);
 
     std::cout << "Rank " << rank << " out of " << world << "\n";
-	MPI_Cart_coords(grid_comm, rank, 2, coord);
-	printf("Rank %d coordinates are %d %d\n", rank, coord[0], coord[1]);
 
     //Initializes the wall and Particle on the root/master processor.
 
 	// 1. set the walls
-	wall.y0 = wall.x0 = 0;
+	float rowSplit = (float)(BOX_VERT_SIZE/world);
+	wall.y0 = rank * rowSplit;
+	wall.y1 = wall.y0 + rowSplit;
+	wall.x0 = 0;
 	wall.x1 = BOX_HORIZ_SIZE;
-	wall.y1 = BOX_VERT_SIZE;
+
 
 	// 2. allocate particle buffer and initialize the Particle
 	Particles = std::vector<Particle>(INIT_NO_PARTICLES);
 	collisions = std::vector<bool>(INIT_NO_PARTICLES);
-
 
 
 	srand( time(nullptr) + 1234 );
@@ -96,7 +99,7 @@ int main(int argc, char** argv){
 	for(int i=0; i<INIT_NO_PARTICLES; i++){
 		// initialize random position
 		Particles[i].x = static_cast<float>(wall.x0 + rand1()*BOX_HORIZ_SIZE);
-		Particles[i].y = static_cast<float>(wall.y0 + rand1()*BOX_VERT_SIZE);
+		Particles[i].y = (wall.y0 + rand1()*rowSplit);
 
 		// initialize random velocity
 		r = rand1()*MAX_INITIAL_VELOCITY;
@@ -109,10 +112,26 @@ int main(int argc, char** argv){
 
 	unsigned int p, pp;
 
+	MPI_Request reqUp, reqDown;
+	MPI_Status statUp, statDown, statRec;
+	Particle *sendBufDown, *sendBufUp;
+
 	/* Main loop */
 	for (time_stamp=0; time_stamp<time_max; time_stamp++) { // for each time stamp
 
+		int flag = 0;
+		if(flag){
+			int recCount{};
+			MPI_Get_count(&statRec, MPI_Particle, &recCount);
+			Particle *recbuf = new Particle[recCount];
+			MPI_Recv(recbuf, recCount, MPI_Particle, statRec.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+			//std::copy(recbuf[0], recbuf[recCount-1], Particles.end());
+		}
+
 		init_collisions(collisions, INIT_NO_PARTICLES);
+		sendParticlesUp.clear();
+		sendParticlesDown.clear();
 
 		for(p=0; p<INIT_NO_PARTICLES; p++) { // for all Particle
 			if(collisions[p]) continue;
@@ -122,8 +141,28 @@ int main(int argc, char** argv){
 				if(collisions[pp]) continue;
 				float t=collide(&Particles[p], &Particles[pp]);
 				if(t!=-1){ // collision
-					collisions[p]=collisions[pp]=1;
+					collisions[p] = collisions[pp] = true;
 					interact(&Particles[p], &Particles[pp], t);
+
+					if(boundaryCheck(Particles[p], wall)) {
+						if(calcRowRank(Particles[p].y) < rank)
+							sendParticlesUp.emplace_back(Particles[p]);
+						else
+							sendParticlesDown.emplace_back(Particles[p]);
+
+						Particles.erase( Particles.begin() + p );
+						collisions.erase( collisions.begin() + p );
+					}
+					if(boundaryCheck(Particles[pp], wall)) {
+						if(calcRowRank(Particles[pp].y) < rank)
+							sendParticlesUp.emplace_back(Particles[pp]);
+						else
+							sendParticlesDown.emplace_back(Particles[pp]);
+
+						Particles.erase( Particles.begin() + pp );
+						collisions.erase( collisions.begin() + pp );
+					}
+
 					break; // only check collision of two Particle
 				}
 			}
@@ -134,11 +173,39 @@ int main(int argc, char** argv){
 		for(p=0; p<INIT_NO_PARTICLES; p++)
 			if(!collisions[p]){
 				feuler(&Particles[p], 1);
+				if(boundaryCheck(Particles[p], wall)) {
 
+					if(calcRowRank(Particles[p].y) < rank)
+						sendParticlesUp.emplace_back(Particles[p]);
+					else
+						sendParticlesDown.emplace_back(Particles[p]);
+
+					Particles.erase( Particles.begin() + p );
+					collisions.erase( collisions.begin() + p );
+				}
 				/* check for wall interaction and add the momentum */
 				pressure += wall_collide(&Particles[p], wall);
 			}
 
+		if(!sendParticlesUp.empty()) {
+			MPI_Wait(&reqUp, &statUp);
+			delete[] sendBufUp;
+			int sendcount = static_cast<int>(sendParticlesUp.size());
+			sendBufUp = new Particle[sendcount];
+			std::copy(sendParticlesUp.begin(), sendParticlesUp.end(), sendBufUp);
+			MPI_Isend(sendBufUp, sendcount, MPI_Particle, rank-1, 0, MPI_COMM_WORLD, &reqUp);
+		}
+
+		if(!sendParticlesDown.empty()) {
+			MPI_Wait(&reqDown, &statDown);
+			delete[] sendBufDown;
+			int sendcount = static_cast<int>(sendParticlesDown.size());
+			sendBufDown = new Particle[sendcount];
+			std::copy(sendParticlesDown.begin(), sendParticlesDown.end(), sendBufDown);
+			MPI_Isend(sendBufDown, sendcount, MPI_Particle, rank-1, 0, MPI_COMM_WORLD, &reqDown);
+		}
+
+		MPI_Iprobe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &flag, &statRec);
 
 	}
 

@@ -1,5 +1,5 @@
-#include<stdlib.h>
-#include<math.h>
+#include<cstdlib>
+#include<cmath>
 
 #include "coordinate.h"
 #include "physics.h"
