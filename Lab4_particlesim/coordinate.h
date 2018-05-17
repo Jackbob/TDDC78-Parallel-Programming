@@ -16,6 +16,6 @@ struct part_cord {
 } ;
 
 typedef struct cord cord_t ;
-typedef struct part_cord pcord_t ;
+typedef struct part_cord Particle;
 
 #endif

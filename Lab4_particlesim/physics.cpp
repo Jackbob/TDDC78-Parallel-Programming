@@ -12,13 +12,13 @@
 #define sign(a) ((a) > 0 ? 1 : -1)
 #endif
 
-int feuler(pcord_t *a, float time_step){
+int feuler(Particle *a, float time_step){
     a->x = a->x + time_step* a->vx ;
     a->y = a->y + time_step* a->vy ;	    
     return 0 ;
 }
 
-float wall_collide(pcord_t *p, cord_t wall){
+float wall_collide(Particle *p, cord_t wall){
     float gPreassure = 0.0 ;
     
     if(p->x < wall.x0){
@@ -46,7 +46,7 @@ float wall_collide(pcord_t *p, cord_t wall){
 
 
 
-float collide(pcord_t *p1, pcord_t *p2){
+float collide(Particle *p1, Particle *p2){
     double a,b,c;
     double temp,t1,t2;
 
@@ -77,9 +77,9 @@ float collide(pcord_t *p1, pcord_t *p2){
 
 
 
-void interact(pcord_t *p1,pcord_t *p2, float t){
+void interact(Particle *p1,Particle *p2, float t){
     float c,s,a,b,tao;
-    pcord_t p1temp,p2temp;
+    Particle p1temp,p2temp;
   
     if (t>=0){
 

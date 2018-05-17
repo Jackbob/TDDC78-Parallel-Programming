@@ -22,7 +22,7 @@
 #define COMM_BUFFER_SIZE  5*PARTICLE_BUFFER_SIZE
 
 struct particle {
-  pcord_t  pcord;
+  Particle  pcord;
   int ptype;        /* Used to simulate mixing of gases */ 
 };
 

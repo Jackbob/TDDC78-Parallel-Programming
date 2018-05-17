@@ -23,12 +23,29 @@ void init_collisions(std::vector<bool> collisions, unsigned int max){
 
 
 int main(int argc, char** argv){
+	/* Define variables */
 	unsigned int time_stamp = 0, time_max;
 	float pressure = 0;
 	int rank{}, world{}, root{0};
-	std::vector<pcord_t> particles;
-    std::vector<bool> collisions;
-    cord_t wall;
+	std::vector<Particle> Particles;
+	std::vector<bool> collisions;
+	cord_t wall;
+
+	/* Initialize MPI environment */
+	MPI_Init(nullptr,nullptr);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &world);
+
+
+    /* Create MPI data type for particles */
+	MPI_Datatype MPI_Particle, oldtypes[1];
+	int blockcounts[1];
+	MPI_Aint offsets[1];
+	offsets[0] = 0;
+	oldtypes[0] = MPI_FLOAT;
+	blockcounts[0] = 4;
+	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &MPI_Particle);
+	MPI_Type_commit(&MPI_Particle);
 
 	// parse arguments
 	if(argc != 2) {
@@ -39,14 +56,9 @@ int main(int argc, char** argv){
 
 	time_max = atoi(argv[1]);
 
-
-    MPI_Init(nullptr,nullptr);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world);
-
     std::cout << "Rank " << rank << " out of " << world << "\n";
 
-    //Initializes the wall and particles on the root/master processor.
+    //Initializes the wall and Particle on the root/master processor.
     if(rank == root){
         /* Initialize */
         // 1. set the walls
@@ -54,9 +66,9 @@ int main(int argc, char** argv){
         wall.x1 = BOX_HORIZ_SIZE;
         wall.y1 = BOX_VERT_SIZE;
 
-        // 2. allocate particle buffer and initialize the particles
-        particles = std::vector<pcord_t>(INIT_NO_PARTICLES*sizeof(pcord_t));
-        collisions = std::vector<bool>(INIT_NO_PARTICLES*sizeof(bool));
+        // 2. allocate particle buffer and initialize the Particle
+        Particles = std::vector<Particle>(INIT_NO_PARTICLES);
+        collisions = std::vector<bool>(INIT_NO_PARTICLES);
     }
 
 
@@ -66,15 +78,15 @@ int main(int argc, char** argv){
 	float r, a;
 	for(int i=0; i<INIT_NO_PARTICLES; i++){
 		// initialize random position
-		particles[i].x = static_cast<float>(wall.x0 + rand1()*BOX_HORIZ_SIZE);
-		particles[i].y = static_cast<float>(wall.y0 + rand1()*BOX_VERT_SIZE);
+		Particles[i].x = static_cast<float>(wall.x0 + rand1()*BOX_HORIZ_SIZE);
+		Particles[i].y = static_cast<float>(wall.y0 + rand1()*BOX_VERT_SIZE);
 
 		// initialize random velocity
 		r = rand1()*MAX_INITIAL_VELOCITY;
 		if(r < 50) r = 49;
 		a = static_cast<float>(rand1()*2*PI);
-		particles[i].vx = r*cos(a);
-		particles[i].vy = r*sin(a);
+		Particles[i].vx = r*cos(a);
+		Particles[i].vy = r*sin(a);
 	}
 
 
@@ -85,29 +97,29 @@ int main(int argc, char** argv){
 
 		init_collisions(collisions, INIT_NO_PARTICLES);
 
-		for(p=0; p<INIT_NO_PARTICLES; p++) { // for all particles
+		for(p=0; p<INIT_NO_PARTICLES; p++) { // for all Particle
 			if(collisions[p]) continue;
 
 			/* check for collisions */
 			for(pp=p+1; pp<INIT_NO_PARTICLES; pp++){
 				if(collisions[pp]) continue;
-				float t=collide(&particles[p], &particles[pp]);
+				float t=collide(&Particles[p], &Particles[pp]);
 				if(t!=-1){ // collision
 					collisions[p]=collisions[pp]=1;
-					interact(&particles[p], &particles[pp], t);
-					break; // only check collision of two particles
+					interact(&Particles[p], &Particles[pp], t);
+					break; // only check collision of two Particle
 				}
 			}
 
 		}
 
-		// move particles that has not collided with another
+		// move Particle that has not collided with another
 		for(p=0; p<INIT_NO_PARTICLES; p++)
 			if(!collisions[p]){
-				feuler(&particles[p], 1);
+				feuler(&Particles[p], 1);
 
 				/* check for wall interaction and add the momentum */
-				pressure += wall_collide(&particles[p], wall);
+				pressure += wall_collide(&Particles[p], wall);
 			}
 
 
