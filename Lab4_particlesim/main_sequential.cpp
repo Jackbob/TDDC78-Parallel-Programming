@@ -21,21 +21,28 @@ void init_collisions(std::vector<bool> collisions, unsigned int max){
 		collisions[i]= false;
 }
 
+void calculateRowCol(int& row, int& col, int nProc){
+	row = (int)std::ceil(std::sqrt(nProc));
+	col = (int)std::floor(std::sqrt(nProc));
+}
+
 
 int main(int argc, char** argv){
 	/* Define variables */
 	unsigned int time_stamp = 0, time_max;
 	float pressure = 0;
-	int rank{}, world{}, root{0};
+	int rank{}, world{}, root{0}, gridcol, gridrow;
+	int dims[2], period[2], coord[2];
 	std::vector<Particle> Particles;
 	std::vector<bool> collisions;
 	cord_t wall;
+
 
 	/* Initialize MPI environment */
 	MPI_Init(nullptr,nullptr);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &world);
-
+	MPI_Comm grid_comm;
 
     /* Create MPI data type for particles */
 	MPI_Datatype MPI_Particle, oldtypes[1];
@@ -47,6 +54,16 @@ int main(int argc, char** argv){
 	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &MPI_Particle);
 	MPI_Type_commit(&MPI_Particle);
 
+	calculateRowCol(gridrow, gridcol, world);
+	std::cout << gridrow << std::endl;
+	std::cout << gridcol << std::endl;
+	dims[0] = gridrow;
+	dims[1] = gridcol;
+	period[0] = period[1] = 0;
+	MPI_Dims_create(world, 2, dims); //Creates a division of processors in 2-D cartesian grid.
+	MPI_Cart_create(MPI_COMM_WORLD, 2, dims, period, 2  ,&grid_comm);
+
+
 	// parse arguments
 	if(argc != 2) {
 		fprintf(stderr, "Usage: %s simulation_time\n", argv[0]);
@@ -57,19 +74,19 @@ int main(int argc, char** argv){
 	time_max = atoi(argv[1]);
 
     std::cout << "Rank " << rank << " out of " << world << "\n";
+	MPI_Cart_coords(grid_comm, rank, 2, coord);
+	printf("Rank %d coordinates are %d %d\n", rank, coord[0], coord[1]);
 
     //Initializes the wall and Particle on the root/master processor.
-    if(rank == root){
-        /* Initialize */
-        // 1. set the walls
-        wall.y0 = wall.x0 = 0;
-        wall.x1 = BOX_HORIZ_SIZE;
-        wall.y1 = BOX_VERT_SIZE;
 
-        // 2. allocate particle buffer and initialize the Particle
-        Particles = std::vector<Particle>(INIT_NO_PARTICLES);
-        collisions = std::vector<bool>(INIT_NO_PARTICLES);
-    }
+	// 1. set the walls
+	wall.y0 = wall.x0 = 0;
+	wall.x1 = BOX_HORIZ_SIZE;
+	wall.y1 = BOX_VERT_SIZE;
+
+	// 2. allocate particle buffer and initialize the Particle
+	Particles = std::vector<Particle>(INIT_NO_PARTICLES);
+	collisions = std::vector<bool>(INIT_NO_PARTICLES);
 
 
 
