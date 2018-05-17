@@ -1,8 +1,7 @@
-#include <stdlib.h>
-#include <time.h>
-#include <stdio.h>
-#include <math.h>
-#include <stdbool.h>
+#include <cstdlib>
+#include <ctime>
+#include <cstdio>
+#include <cmath>
 #include <iostream>
 #include <vector>
 #include <mpi.h>
@@ -14,12 +13,12 @@
 //Feel free to change this program to facilitate parallelization.
 
 float rand1(){
-	return (float)( rand()/(float) RAND_MAX );
+	return (rand()/(float) RAND_MAX);
 }
 
 void init_collisions(std::vector<bool> collisions, unsigned int max){
 	for(unsigned int i=0;i<max;++i)
-		collisions[i]=0;
+		collisions[i]= false;
 }
 
 
