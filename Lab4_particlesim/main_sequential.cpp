@@ -115,34 +115,39 @@ int main(int argc, char** argv){
 	MPI_Request reqUp, reqDown;
 	MPI_Status statUp, statDown, statRec;
 	Particle *sendBufDown, *sendBufUp;
+	int flag = 0;
 
 	/* Main loop */
 	for (time_stamp=0; time_stamp<time_max; time_stamp++) { // for each time stamp
 
-		int flag = 0;
 		if(flag){
 			int recCount{};
 			MPI_Get_count(&statRec, MPI_Particle, &recCount);
 			Particle *recbuf = new Particle[recCount];
 			MPI_Recv(recbuf, recCount, MPI_Particle, statRec.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			for(int i=0; i<recCount; i++)
+				Particles.emplace_back(recbuf[i]);
 
-			//std::copy(recbuf[0], recbuf[recCount-1], Particles.end());
+			delete[] recbuf;
+			std::cout << "fisk \n";
 		}
 
-		init_collisions(collisions, INIT_NO_PARTICLES);
+		init_collisions(collisions, collisions.size());
 		sendParticlesUp.clear();
 		sendParticlesDown.clear();
 
-		for(p=0; p<INIT_NO_PARTICLES; p++) { // for all Particle
+		for(p=0; p<Particles.size(); p++) { // for all Particle
 			if(collisions[p]) continue;
 
 			/* check for collisions */
-			for(pp=p+1; pp<INIT_NO_PARTICLES; pp++){
+			for(pp=p+1; pp<Particles.size(); pp++){
 				if(collisions[pp]) continue;
+
 				float t=collide(&Particles[p], &Particles[pp]);
 				if(t!=-1){ // collision
 					collisions[p] = collisions[pp] = true;
 					interact(&Particles[p], &Particles[pp], t);
+
 
 					if(boundaryCheck(Particles[p], wall)) {
 						if(calcRowRank(Particles[p].y) < rank)
@@ -150,8 +155,9 @@ int main(int argc, char** argv){
 						else
 							sendParticlesDown.emplace_back(Particles[p]);
 
-						Particles.erase( Particles.begin() + p );
-						collisions.erase( collisions.begin() + p );
+						std::cout << "Erasing... \n" ;
+						//Particles.erase( Particles.begin() + p );
+						//collisions.erase( collisions.begin() + p );
 					}
 					if(boundaryCheck(Particles[pp], wall)) {
 						if(calcRowRank(Particles[pp].y) < rank)
@@ -159,9 +165,12 @@ int main(int argc, char** argv){
 						else
 							sendParticlesDown.emplace_back(Particles[pp]);
 
-						Particles.erase( Particles.begin() + pp );
-						collisions.erase( collisions.begin() + pp );
+						std::cout << "Erasing... \n" ;
+						//Particles.erase( Particles.begin() + pp );
+						//collisions.erase( collisions.begin() + pp );
 					}
+
+
 
 					break; // only check collision of two Particle
 				}
@@ -170,9 +179,11 @@ int main(int argc, char** argv){
 		}
 
 		// move Particle that has not collided with another
-		for(p=0; p<INIT_NO_PARTICLES; p++)
+		for(p=0; p<Particles.size(); p++)
 			if(!collisions[p]){
 				feuler(&Particles[p], 1);
+
+
 				if(boundaryCheck(Particles[p], wall)) {
 
 					if(calcRowRank(Particles[p].y) < rank)
@@ -180,32 +191,37 @@ int main(int argc, char** argv){
 					else
 						sendParticlesDown.emplace_back(Particles[p]);
 
-					Particles.erase( Particles.begin() + p );
-					collisions.erase( collisions.begin() + p );
+					//Particles.erase( Particles.begin() + p );
+					//collisions.erase( collisions.begin() + p );
 				}
 				/* check for wall interaction and add the momentum */
 				pressure += wall_collide(&Particles[p], wall);
 			}
 
 		if(!sendParticlesUp.empty()) {
-			MPI_Wait(&reqUp, &statUp);
+			std::cout << "Sending... \n" ;
+			//MPI_Wait(&reqUp, &statUp);
 			delete[] sendBufUp;
 			int sendcount = static_cast<int>(sendParticlesUp.size());
 			sendBufUp = new Particle[sendcount];
-			std::copy(sendParticlesUp.begin(), sendParticlesUp.end(), sendBufUp);
-			MPI_Isend(sendBufUp, sendcount, MPI_Particle, rank-1, 0, MPI_COMM_WORLD, &reqUp);
+			for(int i=0; i<sendParticlesUp.size(); i++)
+				sendBufUp[i] = sendParticlesUp[i];
+			//MPI_Isend(sendBufUp, sendcount, MPI_Particle, rank-1, 0, MPI_COMM_WORLD, &reqUp);
 		}
 
 		if(!sendParticlesDown.empty()) {
-			MPI_Wait(&reqDown, &statDown);
+			std::cout << "Sending... \n" ;
+			//MPI_Wait(&reqDown, &statDown);
 			delete[] sendBufDown;
 			int sendcount = static_cast<int>(sendParticlesDown.size());
 			sendBufDown = new Particle[sendcount];
-			std::copy(sendParticlesDown.begin(), sendParticlesDown.end(), sendBufDown);
-			MPI_Isend(sendBufDown, sendcount, MPI_Particle, rank-1, 0, MPI_COMM_WORLD, &reqDown);
+			for(int i=0; i<sendParticlesDown.size(); i++)
+				sendBufDown[i] = sendParticlesDown[i];
+			//MPI_Isend(sendBufDown, sendcount, MPI_Particle, rank+1, 0, MPI_COMM_WORLD, &reqDown);
 		}
 
-		MPI_Iprobe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &flag, &statRec);
+
+		//MPI_Iprobe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &flag, &statRec);
 
 	}
 
