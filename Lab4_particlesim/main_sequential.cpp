@@ -109,9 +109,6 @@ int main(int argc, char** argv){
 		Particles[i].vy = r*sin(a);
 	}
 
-
-	unsigned int p, pp;
-
 	MPI_Request reqUp, reqDown;
 	MPI_Status statUp, statDown, statRec;
 	Particle *sendBufDown, *sendBufUp;
@@ -136,20 +133,20 @@ int main(int argc, char** argv){
 		sendParticlesUp.clear();
 		sendParticlesDown.clear();
 
-		for(p=0; p<Particles.size(); p++) { // for all Particle
-			if(collisions[p]) continue;
+
+		for(auto p = Particles.begin(); p != Particles.end(); ++p) { // for all Particle
+			if(collisions[p-Particles.begin()]) continue;
 
 			/* check for collisions */
-			for(pp=p+1; pp<Particles.size(); pp++){
-				if(collisions[pp]) continue;
+			for(auto pp=p+1; pp != Particles.end(); ++pp){
+				if(collisions[pp-Particles.begin()]) continue;
 
-				float t=collide(&Particles[p], &Particles[pp]);
+				float t=collide(&Particles[p-Particles.begin()], &Particles[pp-Particles.begin()]);
 				if(t!=-1){ // collision
-					collisions[p] = collisions[pp] = true;
-					interact(&Particles[p], &Particles[pp], t);
+					collisions[p-Particles.begin()] = collisions[pp-Particles.begin()] = true;
+					interact(&Particles[p-Particles.begin()], &Particles[pp-Particles.begin()], t);
 
-
-					if(boundaryCheck(Particles[p], wall)) {
+					/*if(boundaryCheck(Particles[p], wall)) {
 						if(calcRowRank(Particles[p].y) < rank)
 							sendParticlesUp.emplace_back(Particles[p]);
 						else
@@ -168,7 +165,7 @@ int main(int argc, char** argv){
 						std::cout << "Erasing... \n" ;
 						//Particles.erase( Particles.begin() + pp );
 						//collisions.erase( collisions.begin() + pp );
-					}
+					}*/
 
 
 
@@ -179,24 +176,24 @@ int main(int argc, char** argv){
 		}
 
 		// move Particle that has not collided with another
-		for(p=0; p<Particles.size(); p++)
-			if(!collisions[p]){
-				feuler(&Particles[p], 1);
+		for(auto p = Particles.begin(); p != Particles.end(); ++p) {
+			if(!collisions[p-Particles.begin()])
+				feuler(&Particles[p-Particles.begin()], 1);
 
+				if (boundaryCheck(Particles[p-Particles.begin()], wall)) {
 
-				if(boundaryCheck(Particles[p], wall)) {
-
-					if(calcRowRank(Particles[p].y) < rank)
-						sendParticlesUp.emplace_back(Particles[p]);
+					if (calcRowRank(Particles[p-Particles.begin()].y) < rank)
+						sendParticlesUp.emplace_back(Particles[p-Particles.begin()]);
 					else
-						sendParticlesDown.emplace_back(Particles[p]);
+						sendParticlesDown.emplace_back(Particles[p-Particles.begin()]);
 
 					//Particles.erase( Particles.begin() + p );
 					//collisions.erase( collisions.begin() + p );
 				}
 				/* check for wall interaction and add the momentum */
-				pressure += wall_collide(&Particles[p], wall);
+				pressure += wall_collide(&Particles[p-Particles.begin()], wall);
 			}
+		}
 
 		if(!sendParticlesUp.empty()) {
 			std::cout << "Sending... \n" ;
@@ -222,12 +219,10 @@ int main(int argc, char** argv){
 
 
 		//MPI_Iprobe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &flag, &statRec);
-
-	}
-
 	printf("Average pressure = %f\n", pressure / (WALL_LENGTH*time_max));
-    MPI_Finalize();
+	MPI_Finalize();
 	return 0;
+
 
 }
 
