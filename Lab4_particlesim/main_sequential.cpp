@@ -48,6 +48,7 @@ int main(int argc, char** argv){
 	std::vector<Particle> sendParticlesUp;
 	std::vector<Particle> sendParticlesDown;
 	cord_t wall;
+	Particle *recbuf;
 
 
 	/* Initialize MPI environment */
@@ -107,7 +108,7 @@ int main(int argc, char** argv){
 		Particles[i].first.vx = r*cos(a);
 		Particles[i].first.vy = r*sin(a);
 	}
-	MPI_Request reqUp = MPI_REQUEST_NULL, reqDown = MPI_REQUEST_NULL;
+	MPI_Request req[2]{MPI_REQUEST_NULL};
 	MPI_Status statUp, statDown, statRec;
 	Particle *sendBufDown = new Particle[1], *sendBufUp = new Particle[1];
 	int flag = 0;
@@ -115,22 +116,6 @@ int main(int argc, char** argv){
 
 	/* Main loop */
 	for (time_stamp=0; time_stamp<time_max; time_stamp++) { // for each time stamp
-
-
-		MPI_Iprobe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &flag, &statRec);
-
-		if(flag){
-			int recCount{};
-			MPI_Get_count(&statRec, MPI_Particle, &recCount);
-			Particle *recbuf = new Particle[recCount];
-			MPI_Recv(recbuf, recCount, MPI_Particle, statRec.MPI_SOURCE, statRec.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			for(int i=0; i<recCount; i++)
-				Particles.emplace_back(std::make_pair(recbuf[i], false));
-
-			delete[] recbuf;
-			std::cout << "Recieved from rank: " << statRec.MPI_SOURCE <<  "\n";
-		}
-
 
 		int n = (int)Particles.size(), totalp = 0;
 		MPI_Reduce(&n, &totalp,  1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -204,31 +189,67 @@ int main(int argc, char** argv){
 			pressure += wall_collide(&(p->first), wall);
 		}
 
+
+
 		// Send to another process
-		if(!sendParticlesUp.empty()) {
-			MPI_Wait(&reqUp, MPI_STATUS_IGNORE);
-			std::cout << "Sending from rank " << rank << "... \n" ;
+		if(rank != root) {
+			std::cout << "Sending " << sendParticlesUp.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufUp;
 			sendcountUp = static_cast<int>(sendParticlesUp.size());
 			sendBufUp = new Particle[sendcountUp];
 			for(int i=0; i<sendParticlesUp.size(); i++)
 				sendBufUp[i] = sendParticlesUp[i];
 
-			MPI_Isend(sendBufUp, sendcountUp, MPI_Particle, rank-1, 0, MPI_COMM_WORLD, &reqUp);
+			MPI_Isend(sendBufUp, sendcountUp, MPI_Particle, rank-1, 0, MPI_COMM_WORLD, &(req[0]));
 		}
 
-		if(!sendParticlesDown.empty()) {
-			MPI_Wait(&reqDown, MPI_STATUS_IGNORE);
-			std::cout << "Sending from rank " << rank << "... \n" ;
+
+		if(rank != world-1) {
+			std::cout << "Sending " << sendParticlesDown.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufDown;
 			sendcountDown = static_cast<int>(sendParticlesDown.size());
 			sendBufDown = new Particle[sendcountDown];
 			for(int i=0; i<sendParticlesDown.size(); i++)
 				sendBufDown[i] = sendParticlesDown[i];
 
-			MPI_Isend(sendBufDown, sendcountDown, MPI_Particle, rank+1, 0, MPI_COMM_WORLD, &reqDown);
+			MPI_Isend(sendBufDown, sendcountDown, MPI_Particle, rank+1, 0, MPI_COMM_WORLD, &(req[1]));
 		}
 
+
+		if(rank != root){
+			MPI_Probe(rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &statRec);
+			int recCount{};
+			MPI_Get_count(&statRec, MPI_Particle, &recCount);
+			std::cout << "Received " << recCount << " from rank: " << statRec.MPI_SOURCE <<  "\n";
+			if(recCount != 0)
+				recbuf = new Particle[recCount];
+			MPI_Recv(recbuf, recCount, MPI_Particle, statRec.MPI_SOURCE, statRec.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			if(recCount != 0) {
+				for (int i = 0; i < recCount; i++)
+					Particles.emplace_back(std::make_pair(recbuf[i], false));
+
+				delete[] recbuf;
+			}
+		}
+
+
+		if(rank != world-1){
+			MPI_Probe(rank+1, MPI_ANY_TAG, MPI_COMM_WORLD, &statRec);
+			int recCount{};
+			MPI_Get_count(&statRec, MPI_Particle, &recCount);
+			std::cout << "Received " << recCount << " from rank: " << statRec.MPI_SOURCE <<  "\n";
+			if(recCount != 0)
+				recbuf = new Particle[recCount];
+			MPI_Recv(recbuf, recCount, MPI_Particle, statRec.MPI_SOURCE, statRec.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			if(recCount != 0) {
+				for (int i = 0; i < recCount; i++)
+					Particles.emplace_back(std::make_pair(recbuf[i], false));
+
+				delete[] recbuf;
+			}
+		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
 
 	}
 
