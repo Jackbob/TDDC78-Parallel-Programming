@@ -151,7 +151,7 @@ int main(int argc, char** argv){
 						else
 							sendParticlesDown.emplace_back(p->first);
 
-						std::cout << "Erasing... \n" ;
+						//std::cout << "Erasing... \n" ;
 						Particles.erase( p );
 					}
 					if(boundaryCheck(pp->first, wall)) {
@@ -160,7 +160,7 @@ int main(int argc, char** argv){
 						else
 							sendParticlesDown.emplace_back(pp->first);
 
-						std::cout << "Erasing... \n" ;
+						//std::cout << "Erasing... \n" ;
 						Particles.erase( pp );
 					}
 
