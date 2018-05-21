@@ -49,6 +49,7 @@ int main(int argc, char** argv){
 	std::vector<Particle> sendParticlesDown;
 	cord_t wall;
 	Particle *recbuf;
+    double start_time{0}, end_time{0};
 
 
 	/* Initialize MPI environment */
@@ -114,6 +115,8 @@ int main(int argc, char** argv){
 	int flag = 0;
 	int sendcountDown, sendcountUp;
 
+
+    start_time = MPI_Wtime(); //start MPI::Wtime();
 	/* Main loop */
 	for (time_stamp=0; time_stamp<time_max; time_stamp++) { // for each time stamp
 
@@ -248,6 +251,7 @@ int main(int argc, char** argv){
 			}
 		}
 
+		
 		MPI_Barrier(MPI_COMM_WORLD);
 
 	}
@@ -257,12 +261,14 @@ int main(int argc, char** argv){
 	float totalpress = 0;
 	MPI_Reduce(&pressure, &totalpress,  1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
 
+    end_time = MPI_Wtime(); //start MPI::Wtime();
 	if(rank == root){
 		printf("Average pressure = %f\n", totalpress / (WALL_LENGTH*time_max));
+        printf("Elapsed time = %f seconds\n", end_time-start_time);
 	}
 
-	//delete [] sendBufDown;
-	//delete [] sendBufUp;
+	delete [] sendBufDown;
+	delete [] sendBufUp;
 
 	MPI_Finalize();
 	return 0;
