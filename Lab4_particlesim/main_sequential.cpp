@@ -119,8 +119,8 @@ int main(int argc, char** argv){
 
 		int n = (int)Particles.size(), totalp = 0;
 		MPI_Reduce(&n, &totalp,  1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-		if(rank == root)
-			std::cout << "Total particles "  << totalp << "\n";
+		//if(rank == root)
+			//std::cout << "Total particles "  << totalp << "\n";
 
 		/* Initialize values */
 		for(auto& p : Particles)
@@ -171,10 +171,11 @@ int main(int argc, char** argv){
 
 
 		// move Particle that has not collided with another
-		for(auto p = Particles.begin(); p != Particles.end(); ++p) {
-			if(!p->second)
-				feuler(&(p->first), 1);
-
+		for(auto p = Particles.begin(); p != Particles.end();++p) {
+			if(!p->second){
+                feuler(&(p->first), 1);
+                pressure += wall_collide(&(p->first), wall);
+            }
 			if (boundaryCheck(p->first, wall)) {
 
 				if (calcRowRank(p->first.y) < rank)
@@ -184,16 +185,14 @@ int main(int argc, char** argv){
 
 				Particles.erase(p);
 			}
-
-			/* check for wall interaction and add the momentum */
-			pressure += wall_collide(&(p->first), wall);
+			//check for wall interaction and add the momentum *
 		}
 
 
 
 		// Send to another process
 		if(rank != root) {
-			std::cout << "Sending " << sendParticlesUp.size() << " from rank " << rank << "... \n" ;
+			//std::cout << "Sending " << sendParticlesUp.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufUp;
 			sendcountUp = static_cast<int>(sendParticlesUp.size());
 			sendBufUp = new Particle[sendcountUp];
@@ -205,7 +204,7 @@ int main(int argc, char** argv){
 
 
 		if(rank != world-1) {
-			std::cout << "Sending " << sendParticlesDown.size() << " from rank " << rank << "... \n" ;
+			//std::cout << "Sending " << sendParticlesDown.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufDown;
 			sendcountDown = static_cast<int>(sendParticlesDown.size());
 			sendBufDown = new Particle[sendcountDown];
@@ -220,7 +219,7 @@ int main(int argc, char** argv){
 			MPI_Probe(rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, &statRec);
 			int recCount{};
 			MPI_Get_count(&statRec, MPI_Particle, &recCount);
-			std::cout << "Received " << recCount << " from rank: " << statRec.MPI_SOURCE <<  "\n";
+			//std::cout << "Received " << recCount << " from rank: " << statRec.MPI_SOURCE <<  "\n";
 			if(recCount != 0)
 				recbuf = new Particle[recCount];
 			MPI_Recv(recbuf, recCount, MPI_Particle, statRec.MPI_SOURCE, statRec.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -237,7 +236,7 @@ int main(int argc, char** argv){
 			MPI_Probe(rank+1, MPI_ANY_TAG, MPI_COMM_WORLD, &statRec);
 			int recCount{};
 			MPI_Get_count(&statRec, MPI_Particle, &recCount);
-			std::cout << "Received " << recCount << " from rank: " << statRec.MPI_SOURCE <<  "\n";
+			//std::cout << "Received " << recCount << " from rank: " << statRec.MPI_SOURCE <<  "\n";
 			if(recCount != 0)
 				recbuf = new Particle[recCount];
 			MPI_Recv(recbuf, recCount, MPI_Particle, statRec.MPI_SOURCE, statRec.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -253,6 +252,7 @@ int main(int argc, char** argv){
 
 	}
 
+
 	// Get total pressure from all processes
 	float totalpress = 0;
 	MPI_Reduce(&pressure, &totalpress,  1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -260,6 +260,9 @@ int main(int argc, char** argv){
 	if(rank == root){
 		printf("Average pressure = %f\n", totalpress / (WALL_LENGTH*time_max));
 	}
+
+	//delete [] sendBufDown;
+	//delete [] sendBufUp;
 
 	MPI_Finalize();
 	return 0;
