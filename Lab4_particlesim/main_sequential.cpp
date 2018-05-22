@@ -74,7 +74,7 @@ int main(int argc, char** argv){
 
 	time_max = atoi(argv[1]);
 
-    std::cout << "Rank " << rank << " out of " << world << "\n";
+    //std::cout << "Rank " << rank << " out of " << world << "\n";
 
     //Initializes the wall and Particle on the root/master processor.
 
@@ -261,7 +261,7 @@ int main(int argc, char** argv){
 	float totalpress = 0;
 	int n = (int)Particles.size(), totalp = 0;
 
-	std::cout << localsum << std::endl;
+	//std::cout << localsum << std::endl;
 	MPI_Reduce(&pressure, &totalpress,  1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&localsum, &globalsum, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&min_sent, &global_min,1, MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
@@ -271,6 +271,7 @@ int main(int argc, char** argv){
 
 	end_time = MPI_Wtime(); //start MPI::Wtime();
 	if(rank == root){
+		std::cout <<"Size of box: " << BOX_HORIZ_SIZE << "x" << BOX_VERT_SIZE << "\n";
 		std::cout << "Total particles "  << totalp << "\n";
 		printf("Average pressure = %f\n", totalpress / (WALL_LENGTH*time_max));
         printf("Elapsed time = %f seconds\n", end_time-start_time);
