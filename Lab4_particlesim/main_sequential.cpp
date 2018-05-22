@@ -104,7 +104,7 @@ int main(int argc, char** argv){
 
 		// initialize random velocity
 		r = rand1()*MAX_INITIAL_VELOCITY;
-		if(r < 50) r = 49;
+		if(r > 50) r = 49;
 		a = static_cast<float>(rand1()*2*PI);
 		Particles[i].first.vx = r*cos(a);
 		Particles[i].first.vy = r*sin(a);
@@ -251,7 +251,6 @@ int main(int argc, char** argv){
 			}
 		}
 
-		
 		MPI_Barrier(MPI_COMM_WORLD);
 
 	}
