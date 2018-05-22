@@ -56,7 +56,6 @@ int main(int argc, char** argv){
 	MPI_Init(nullptr,nullptr);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &world);
-	MPI_Comm grid_comm;
 
     /* Create MPI data type for particles */
 	MPI_Datatype MPI_Particle, oldtypes[1];
@@ -67,6 +66,7 @@ int main(int argc, char** argv){
 	blockcounts[0] = 4;
 	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &MPI_Particle);
 	MPI_Type_commit(&MPI_Particle);
+	long localsum{0}, globalsum{0}, max_sent{0}, min_sent{std::numeric_limits<long>::max()}, global_max{0}, global_min{0};
 
 
 	// parse arguments
@@ -109,10 +109,9 @@ int main(int argc, char** argv){
 		Particles[i].first.vx = r*cos(a);
 		Particles[i].first.vy = r*sin(a);
 	}
-	MPI_Request req[2]{MPI_REQUEST_NULL};
+	MPI_Request req[2];
 	MPI_Status statUp, statDown, statRec;
 	Particle *sendBufDown = new Particle[1], *sendBufUp = new Particle[1];
-	int flag = 0;
 	int sendcountDown, sendcountUp;
 
 
@@ -195,10 +194,13 @@ int main(int argc, char** argv){
 
 		// Send to another process
 		if(rank != root) {
-			//std::cout << "Sending " << sendParticlesUp.size() << " from rank " << rank << "... \n" ;
+			std::cout << "Sending " << sendParticlesUp.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufUp;
 			sendcountUp = static_cast<int>(sendParticlesUp.size());
 			sendBufUp = new Particle[sendcountUp];
+			max_sent = max_sent < sendcountUp ? sendcountUp : max_sent;
+            min_sent = min_sent > sendcountUp ? sendcountUp : min_sent;
+            localsum +=sendcountUp;
 			for(int i=0; i<sendParticlesUp.size(); i++)
 				sendBufUp[i] = sendParticlesUp[i];
 
@@ -207,10 +209,13 @@ int main(int argc, char** argv){
 
 
 		if(rank != world-1) {
-			//std::cout << "Sending " << sendParticlesDown.size() << " from rank " << rank << "... \n" ;
+			std::cout << "Sending " << sendParticlesDown.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufDown;
 			sendcountDown = static_cast<int>(sendParticlesDown.size());
 			sendBufDown = new Particle[sendcountDown];
+            max_sent = max_sent < sendcountDown ? sendcountDown : max_sent;
+            min_sent = min_sent > sendcountDown ? sendcountDown : min_sent;
+			localsum += sendcountDown;
 			for(int i=0; i<sendParticlesDown.size(); i++)
 				sendBufDown[i] = sendParticlesDown[i];
 
@@ -253,18 +258,25 @@ int main(int argc, char** argv){
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
-	}
+    }
 
 
 	// Get total pressure from all processes
 	float totalpress = 0;
+	std::cout << localsum << std::endl;
 	MPI_Reduce(&pressure, &totalpress,  1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&localsum, &globalsum, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&min_sent, &global_min,1, MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&max_sent, &global_max,1, MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
 
     end_time = MPI_Wtime(); //start MPI::Wtime();
 	if(rank == root){
 		printf("Average pressure = %f\n", totalpress / (WALL_LENGTH*time_max));
         printf("Elapsed time = %f seconds\n", end_time-start_time);
-	}
+        std::cout << "Average sent particles = " << globalsum/time_max << "\n";
+        //std::cout << "Minimum particles sent = " << global_min << "\n";
+        //std::cout << "Maximum particles sent = " << global_max << "\n";
+    }
 
 	delete [] sendBufDown;
 	delete [] sendBufUp;
