@@ -2,6 +2,7 @@
 #include <ctime>
 #include <cstdio>
 #include <cmath>
+#include <limits>
 #include <iostream>
 #include <vector>
 #include <mpi.h>
@@ -16,11 +17,6 @@
 
 float rand1(){
 	return (rand()/(float) RAND_MAX);
-}
-
-void init_collisions(std::vector<bool> collisions, unsigned int max){
-	for(unsigned int i=0;i<max;++i)
-		collisions[i]= false;
 }
 
 int calcRowRank(float y){
@@ -119,10 +115,6 @@ int main(int argc, char** argv){
 	/* Main loop */
 	for (time_stamp=0; time_stamp<time_max; time_stamp++) { // for each time stamp
 
-		int n = (int)Particles.size(), totalp = 0;
-		MPI_Reduce(&n, &totalp,  1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-		//if(rank == root)
-			//std::cout << "Total particles "  << totalp << "\n";
 
 		/* Initialize values */
 		for(auto& p : Particles)
@@ -141,10 +133,13 @@ int main(int argc, char** argv){
 
 				float t=collide(&(p->first), &(pp->first));
 				if(t!=-1){ // collision
-					p->second = p->second = true;
+					p->second = pp->second = true;
 					interact(&(p->first), &(pp->first), t);
 
-					if(boundaryCheck((p->first), wall)) {
+					/*****************************
+					 * For LAB 5 TOTALVIEW Debug *
+					 *****************************/
+					/*if(boundaryCheck((p->first), wall)) {
 						if(calcRowRank(p->first.y) < rank)
 							sendParticlesUp.emplace_back(p->first);
 						else
@@ -162,8 +157,7 @@ int main(int argc, char** argv){
 						//std::cout << "Erasing... \n" ;
 						Particles.erase( pp );
 					}
-
-
+					*/
 
 					break; // only check collision of two Particle
 				}
@@ -173,33 +167,35 @@ int main(int argc, char** argv){
 
 
 		// move Particle that has not collided with another
-		for(auto p = Particles.begin(); p != Particles.end();++p) {
+		for(auto p = Particles.begin(); p != Particles.end();) {
 			if(!p->second){
                 feuler(&(p->first), 1);
                 pressure += wall_collide(&(p->first), wall);
             }
-			if (boundaryCheck(p->first, wall)) {
 
+			if(boundaryCheck(p->first, wall)) {
 				if (calcRowRank(p->first.y) < rank)
 					sendParticlesUp.emplace_back(p->first);
 				else
 					sendParticlesDown.emplace_back(p->first);
 
-				Particles.erase(p);
+				p = Particles.erase(p);
 			}
-			//check for wall interaction and add the momentum *
-		}
+			else{
+			    ++p;
+			}
 
+		}
 
 
 		// Send to another process
 		if(rank != root) {
-			std::cout << "Sending " << sendParticlesUp.size() << " from rank " << rank << "... \n" ;
+			//std::cout << "Sending " << sendParticlesUp.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufUp;
 			sendcountUp = static_cast<int>(sendParticlesUp.size());
 			sendBufUp = new Particle[sendcountUp];
-			max_sent = max_sent < sendcountUp ? sendcountUp : max_sent;
-            min_sent = min_sent > sendcountUp ? sendcountUp : min_sent;
+            max_sent = sendcountUp > max_sent ? sendcountUp : max_sent;
+            min_sent = sendcountUp < min_sent ? sendcountUp : min_sent;
             localsum +=sendcountUp;
 			for(int i=0; i<sendParticlesUp.size(); i++)
 				sendBufUp[i] = sendParticlesUp[i];
@@ -209,12 +205,12 @@ int main(int argc, char** argv){
 
 
 		if(rank != world-1) {
-			std::cout << "Sending " << sendParticlesDown.size() << " from rank " << rank << "... \n" ;
+			//std::cout << "Sending " << sendParticlesDown.size() << " from rank " << rank << "... \n" ;
 			delete[] sendBufDown;
 			sendcountDown = static_cast<int>(sendParticlesDown.size());
 			sendBufDown = new Particle[sendcountDown];
-            max_sent = max_sent < sendcountDown ? sendcountDown : max_sent;
-            min_sent = min_sent > sendcountDown ? sendcountDown : min_sent;
+            max_sent = sendcountDown > max_sent ? sendcountDown : max_sent;
+            min_sent = sendcountDown < min_sent ? sendcountDown : min_sent;
 			localsum += sendcountDown;
 			for(int i=0; i<sendParticlesDown.size(); i++)
 				sendBufDown[i] = sendParticlesDown[i];
@@ -263,23 +259,26 @@ int main(int argc, char** argv){
 
 	// Get total pressure from all processes
 	float totalpress = 0;
+	int n = (int)Particles.size(), totalp = 0;
+
 	std::cout << localsum << std::endl;
 	MPI_Reduce(&pressure, &totalpress,  1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&localsum, &globalsum, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&min_sent, &global_min,1, MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
     MPI_Reduce(&max_sent, &global_max,1, MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+	MPI_Reduce(&n, &totalp,  1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    end_time = MPI_Wtime(); //start MPI::Wtime();
+
+	end_time = MPI_Wtime(); //start MPI::Wtime();
 	if(rank == root){
+		std::cout << "Total particles "  << totalp << "\n";
 		printf("Average pressure = %f\n", totalpress / (WALL_LENGTH*time_max));
         printf("Elapsed time = %f seconds\n", end_time-start_time);
         std::cout << "Average sent particles = " << globalsum/time_max << "\n";
-        //std::cout << "Minimum particles sent = " << global_min << "\n";
-        //std::cout << "Maximum particles sent = " << global_max << "\n";
+        std::cout << "Minimum particles sent = " << global_min << "\n";
+        std::cout << "Maximum particles sent = " << global_max << "\n";
     }
 
-	delete [] sendBufDown;
-	delete [] sendBufUp;
 
 	MPI_Finalize();
 	return 0;
