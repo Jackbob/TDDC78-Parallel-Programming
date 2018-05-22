@@ -8,6 +8,7 @@
 #include <mpi.h>
 #include <algorithm>
 #include <utility>
+#include <iomanip>
 #include "coordinate.h"
 #include "definitions.h"
 #include "physics.h"
@@ -261,7 +262,6 @@ int main(int argc, char** argv){
 	float totalpress = 0;
 	int n = (int)Particles.size(), totalp = 0;
 
-	//std::cout << localsum << std::endl;
 	MPI_Reduce(&pressure, &totalpress,  1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&localsum, &globalsum, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&min_sent, &global_min,1, MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
@@ -275,7 +275,7 @@ int main(int argc, char** argv){
 		std::cout << "Total particles "  << totalp << "\n";
 		printf("Average pressure = %f\n", totalpress / (WALL_LENGTH*time_max));
         printf("Elapsed time = %f seconds\n", end_time-start_time);
-        std::cout << "Average sent particles = " << globalsum/time_max << "\n";
+        std::cout << "Average sent particles = " << std::setprecision(2) << (double)globalsum/time_max << "\n";
         std::cout << "Minimum particles sent = " << global_min << "\n";
         std::cout << "Maximum particles sent = " << global_max << "\n";
     }
