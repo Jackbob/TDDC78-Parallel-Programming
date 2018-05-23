@@ -23,6 +23,9 @@ int main(int argc, char *argv[]) {
 
     MPI_Init(nullptr, nullptr);
     int rank{}, world{}, root{0};
+    VT_Initialize(nullptr, nullptr);
+    int symname_filter;
+    VT_funcdef("Thresfilter", VT_NOCLASS, &symname_filter);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world);
@@ -97,7 +100,9 @@ int main(int argc, char *argv[]) {
     unsigned char mean = static_cast<unsigned char>(sum/(xsize*ysize*3));
     //unsigned char mean = sum/(xsize*ysize);
 
+    VT_enter(symname_filter, VT_NOSCL);
     thresfilter(xsize, sendcounts[rank]/(xsize*3), dst, mean);
+    VT_end(0);
 
     MPI_Gather(dst, sendcounts[rank], MPI_UNSIGNED_CHAR, newsrc, sendcounts[root], MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);
     if(rank == root) {
@@ -122,6 +127,7 @@ int main(int argc, char *argv[]) {
     }
     delete[] dst;
 
+    VT_Finalize();
     MPI_Finalize();
     return (0);
 }
