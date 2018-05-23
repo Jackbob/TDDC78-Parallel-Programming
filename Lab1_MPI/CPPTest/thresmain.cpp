@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <iterator>
+#include "VT.h"
 
 #define MAX_X 1.33
 #define Pi 3.14159
